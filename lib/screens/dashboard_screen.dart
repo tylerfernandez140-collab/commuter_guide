@@ -1,12 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'manage_routes_screen.dart';
 import 'manage_landmarks_screen.dart';
 import 'suggestions_review_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
+  @override
+  _DashboardScreenState createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  Map<String, int> stats = {
+    'routes': 0,
+    'landmarks': 0,
+    'pendingSuggestions': 0,
+    'users': 0,
+  };
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final dashboardStats = await StatsService.getDashboardStats();
+    setState(() {
+      stats = dashboardStats;
+      isLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -19,6 +47,8 @@ class DashboardScreen extends StatelessWidget {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         elevation: 0,
+        automaticallyImplyLeading: false,
+        leading: const SizedBox.shrink(),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -47,48 +77,49 @@ class DashboardScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 0.9,
-                    children: [
-                      _buildDashboardCard(
-                        context,
-                        'Manage Routes',
-                        '3 Active',
-                        Icons.map_outlined,
-                        Colors.blue,
-                        ManageRoutesScreen(),
-                      ),
-                      _buildDashboardCard(
-                        context,
-                        'Manage Landmarks',
-                        '25 Locations',
-                        Icons.place_outlined,
-                        Colors.orange,
-                        ManageLandmarksScreen(),
-                      ),
-                      _buildDashboardCard(
-                        context,
-                        'Review Suggestions',
-                        '4 Pending',
-                        Icons.rate_review_outlined,
-                        Colors.purple,
-                        SuggestionsReviewScreen(),
-                      ),
-                      // Add a placeholder or stats card if needed
-                      _buildStatCard(
-                        context,
-                        'Total Users',
-                        '12',
-                        Icons.people_outline,
-                        Colors.teal,
-                      ),
-                    ],
-                  ),
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : GridView.count(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.9,
+                          children: [
+                            _buildDashboardCard(
+                              context,
+                              'Manage Routes',
+                              '${stats['routes']} Active',
+                              Icons.map_outlined,
+                              Colors.blue,
+                              ManageRoutesScreen(),
+                            ),
+                            _buildDashboardCard(
+                              context,
+                              'Manage Landmarks',
+                              '${stats['landmarks']} Location${stats['landmarks'] == 1 ? '' : 's'}',
+                              Icons.place_outlined,
+                              Colors.orange,
+                              ManageLandmarksScreen(),
+                            ),
+                            _buildDashboardCard(
+                              context,
+                              'Review Suggestions',
+                              '${stats['pendingSuggestions']} Pending${stats['pendingSuggestions'] == 1 ? '' : 's'}',
+                              Icons.rate_review_outlined,
+                              Colors.purple,
+                              SuggestionsReviewScreen(),
+                            ),
+                            _buildStatCard(
+                              context,
+                              'Total Users',
+                              '${stats['users']}',
+                              Icons.people_outline,
+                              Colors.teal,
+                            ),
+                          ],
+                        ),
                 ],
               ),
             ),

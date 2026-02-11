@@ -52,7 +52,7 @@ class SearchResultScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     Row(
                       children: [
-                        const Icon(Icons.attach_money, color: Colors.green),
+                        const Icon(Icons.payments, color: Colors.green),
                         Text(
                           'Fare: ₱$fare',
                           style: const TextStyle(fontSize: 16),

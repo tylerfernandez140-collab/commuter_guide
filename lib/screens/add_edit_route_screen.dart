@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:async';
 import '../models/route_model.dart';
 import '../services/api_service.dart';
 import '../services/routing_service.dart';
@@ -48,6 +49,10 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
   bool _isRouting = false;
   String _statusMessage = "Calculating route...";
 
+  // Debounce timers for auto-geocoding
+  Timer? _startGeocodeTimer;
+  Timer? _endGeocodeTimer;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +69,10 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     _timeController = TextEditingController(
       text: widget.route?.estimatedTime.toString() ?? '',
     );
+
+    // Add listeners for auto-geocoding with debounce
+    _startController.addListener(_onStartPointChanged);
+    _endController.addListener(_onEndPointChanged);
 
     // Listen to focus changes to know which field to update on map tap
     _startFocusNode.addListener(() {
@@ -99,6 +108,8 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
 
   @override
   void dispose() {
+    _startGeocodeTimer?.cancel();
+    _endGeocodeTimer?.cancel();
     _nameController.dispose();
     _startController.dispose();
     _endController.dispose();
@@ -107,6 +118,21 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     _startFocusNode.dispose();
     _endFocusNode.dispose();
     super.dispose();
+  }
+
+  // Debounce methods for auto-geocoding
+  void _onStartPointChanged() {
+    _startGeocodeTimer?.cancel();
+    _startGeocodeTimer = Timer(const Duration(milliseconds: 1000), () {
+      _geocodeAndSetStart();
+    });
+  }
+
+  void _onEndPointChanged() {
+    _endGeocodeTimer?.cancel();
+    _endGeocodeTimer = Timer(const Duration(milliseconds: 1000), () {
+      _geocodeAndSetEnd();
+    });
   }
 
   // Flatten segments for display and saving
@@ -544,7 +570,6 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
                   'Start Point',
                   Icons.my_location,
                   focusNode: _startFocusNode,
-                  onSubmitted: _geocodeAndSetStart,
                 ),
               ),
               SizedBox(width: 12),
@@ -554,7 +579,6 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
                   'End Point',
                   Icons.flag,
                   focusNode: _endFocusNode,
-                  onSubmitted: _geocodeAndSetEnd,
                 ),
               ),
             ],
@@ -566,7 +590,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
                 child: _buildTextField(
                   _fareController,
                   'Fare (₱)',
-                  Icons.attach_money,
+                  Icons.payments,
                   isNumber: true,
                 ),
               ),

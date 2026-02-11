@@ -23,6 +23,7 @@ const landmarkRoutes = require('./routes/landmarkRoutes');
 const searchRoutes = require('./routes/searchRoutes');
 const suggestionRoutes = require('./routes/suggestionRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 // Mount routers
 app.use('/api/auth', authRoutes);
@@ -32,6 +33,7 @@ app.use('/api/landmarks', landmarkRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/stats', statsRoutes);
 
 const PORT = process.env.PORT || 3000;
 

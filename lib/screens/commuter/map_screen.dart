@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'package:latlong2/latlong.dart' as latlong;
 
 class MapScreen extends StatefulWidget {
   final List<dynamic>? routeCoordinates;
@@ -24,6 +25,7 @@ class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   LatLng? _currentLocation;
   StreamSubscription<Position>? _positionStreamSubscription;
+  double _routeDistance = 0.0; // Distance in kilometers
 
   // Parañaque Coordinates
   static const LatLng _paranaqueCenter = LatLng(14.4793, 121.0195);
@@ -32,6 +34,7 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     _determinePosition();
+    _calculateRouteDistance();
     // Use WidgetsBinding to adjust camera after the map is built if coordinates are present
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.routeCoordinates != null &&
@@ -45,6 +48,70 @@ class _MapScreenState extends State<MapScreen> {
   void dispose() {
     _positionStreamSubscription?.cancel();
     super.dispose();
+  }
+
+  void _calculateRouteDistance() {
+    print('Calculating distance for coordinates: ${widget.routeCoordinates}');
+    
+    if (widget.routeCoordinates == null || widget.routeCoordinates!.isEmpty) {
+      print('No coordinates found');
+      setState(() {
+        _routeDistance = 0.0;
+      });
+      return;
+    }
+
+    List<LatLng> points = [];
+    
+    // Handle different coordinate formats
+    for (var coord in widget.routeCoordinates!) {
+      print('Processing coordinate: $coord');
+      
+      double lat = 0.0;
+      double lng = 0.0;
+      
+      if (coord is Map<String, dynamic>) {
+        lat = (coord['lat'] as num?)?.toDouble() ?? 0.0;
+        lng = (coord['lng'] as num?)?.toDouble() ?? 0.0;
+      } else if (coord is List && coord.length >= 2) {
+        lat = (coord[0] as num?)?.toDouble() ?? 0.0;
+        lng = (coord[1] as num?)?.toDouble() ?? 0.0;
+      } else {
+        print('Unknown coordinate format: $coord');
+        continue;
+      }
+      
+      // Only add valid coordinates
+      if (lat != 0.0 && lng != 0.0) {
+        points.add(LatLng(lat, lng));
+      }
+    }
+
+    print('Converted to ${points.length} valid LatLng points');
+
+    if (points.length < 2) {
+      print('Not enough valid points for distance calculation');
+      setState(() {
+        _routeDistance = 0.0;
+      });
+      return;
+    }
+
+    double totalDistance = 0.0;
+    for (int i = 0; i < points.length - 1; i++) {
+      double segmentDistance = latlong.Distance().as(
+        LengthUnit.Kilometer,
+        points[i],
+        points[i + 1],
+      );
+      totalDistance += segmentDistance;
+      print('Segment $i distance: ${segmentDistance.toStringAsFixed(3)} km');
+    }
+
+    print('Total distance: ${totalDistance.toStringAsFixed(3)} km');
+    setState(() {
+      _routeDistance = totalDistance;
+    });
   }
 
   Future<void> _determinePosition() async {
@@ -269,6 +336,52 @@ class _MapScreenState extends State<MapScreen> {
               MarkerLayer(markers: _buildMarkers()),
             ],
           ),
+          // Distance and Time Info Card
+          if (_routeDistance > 0)
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.straighten, color: Colors.blue, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_routeDistance.toStringAsFixed(1)} km',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.access_time, color: Colors.orange, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${(_routeDistance / 0.4 * 60).round()} min',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           Positioned(
             bottom: 20,
             right: 20,

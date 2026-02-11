@@ -29,7 +29,7 @@ class RouteDetailsScreen extends StatelessWidget {
             SizedBox(height: 12),
             _buildInfoCard(
               context,
-              icon: Icons.attach_money,
+              icon: Icons.payments,
               title: 'Fare',
               value: '₱${route.fare.toStringAsFixed(2)}',
             ),
