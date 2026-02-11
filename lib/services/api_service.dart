@@ -10,13 +10,7 @@ import '../models/suggestion.dart';
 
 class ApiService {
   static String get baseUrl {
-    if (kIsWeb) {
-      return 'http://localhost:3000/api';
-    } else if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000/api';
-    } else {
-      return 'http://localhost:3000/api';
-    }
+    return 'https://commuter-guide.onrender.com/api';
   }
 
   // Auth
