@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../models/route_model.dart';
 import 'route_details_screen.dart';
 
 class CommuterHomeScreen extends StatefulWidget {
-  const CommuterHomeScreen({Key? key}) : super(key: key);
+  const CommuterHomeScreen({super.key});
 
   @override
-  _CommuterHomeScreenState createState() => _CommuterHomeScreenState();
+  State<CommuterHomeScreen> createState() => _CommuterHomeScreenState();
 }
 
 class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
@@ -43,7 +44,7 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
         _isLoadingRoutes = false;
       });
     } catch (e) {
-      print('Error loading routes: $e');
+      debugPrint('Error loading routes: $e');
       setState(() => _isLoadingRoutes = false);
     }
   }
@@ -51,58 +52,65 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            Container(
-              padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
-              decoration: BoxDecoration(
-                color: Colors.teal,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.teal.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F766E), // Deep Teal
+              Color(0xFF2DD4BF), // Soft Teal
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Section
+              Container(
+                padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
+                decoration: BoxDecoration(
+                  color: Colors.transparent, // Remove background to show gradient
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(30),
+                    bottomRight: Radius.circular(30),
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Hello, Commuter!',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Hello, Commuter!',
+                          style: GoogleFonts.poppins(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.white),
-                        onPressed: () {
-                          Provider.of<AuthProvider>(
-                            context,
-                            listen: false,
-                          ).logout();
-                          Navigator.of(context).pushReplacementNamed('/login');
-                        },
-                      ),
+                        IconButton(
+                          icon: const Icon(Icons.logout, color: Colors.white),
+                          onPressed: () {
+                            Provider.of<AuthProvider>(
+                              context,
+                              listen: false,
+                            ).logout();
+                            Navigator.of(context).pushReplacementNamed('/login');
+                          },
+                        ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Where do you want to go today?',
-                    style: TextStyle(fontSize: 16, color: Colors.teal.shade50),
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -118,18 +126,11 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
                           }
                           final query = textEditingValue.text.toLowerCase();
                           final matches = _allRoutes.where((route) {
-                            return route.routeName.toLowerCase().contains(
-                                  query,
-                                ) ||
-                                route.startPoint.toLowerCase().contains(
-                                  query,
-                                ) ||
+                            return route.routeName.toLowerCase().contains(query) ||
+                                route.startPoint.toLowerCase().contains(query) ||
                                 route.endPoint.toLowerCase().contains(query) ||
-                                route.landmarks.any(
-                                  (l) => l.toLowerCase().contains(query),
-                                );
+                                route.landmarks.any((l) => l.toLowerCase().contains(query));
                           }).toList();
-
                           if (matches.isEmpty) {
                             return ['No route found'];
                           }
@@ -215,12 +216,13 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
                                         leading: Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
-                                            color: Colors.teal.withOpacity(0.1),
+                                            color: Colors.teal.withValues(alpha: 0.1),
                                             shape: BoxShape.circle,
                                           ),
-                                          child: const Icon(
+                                          child: Icon(
                                             Icons.directions_bus,
-                                            color: Colors.teal,
+                                            size: 24,
+                                            color: Color(0xFF0F766E), // Deep Teal
                                           ),
                                         ),
                                         title: Text(
@@ -268,63 +270,64 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_isLoadingRoutes)
-                    const Center(child: CircularProgressIndicator())
-                  else ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Popular Destinations',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
+                  _isLoadingRoutes
+                      ? const Center(child: CircularProgressIndicator())
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Popular Destinations',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () {},
+                                  child: const Text('View All'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            GridView.count(
+                              crossAxisCount: 2,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                              childAspectRatio: 0.85,
+                              children: [
+                                _buildSuggestionCard(
+                                  'SM Sucat',
+                                  'https://images.unsplash.com/photo-1569388330292-7a6a84165c6c?q=80&w=400&auto=format&fit=crop',
+                                ),
+                                _buildSuggestionCard(
+                                  'NAIA Terminal 1',
+                                  'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=400&auto=format&fit=crop',
+                                ),
+                                _buildSuggestionCard(
+                                  'City Hall',
+                                  'https://images.unsplash.com/photo-1577493340887-b7bfff550145?q=80&w=400&auto=format&fit=crop',
+                                ),
+                                _buildSuggestionCard(
+                                  'Baclaran',
+                                  'https://images.unsplash.com/photo-1548625361-987702f30b92?q=80&w=400&auto=format&fit=crop',
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        TextButton(
-                          onPressed: () {
-                            // Implement view all logic if needed
-                          },
-                          child: const Text('View All'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      childAspectRatio: 0.85,
-                      children: [
-                        _buildSuggestionCard(
-                          'SM Sucat',
-                          'https://images.unsplash.com/photo-1569388330292-7a6a84165c6c?q=80&w=400&auto=format&fit=crop',
-                        ),
-                        _buildSuggestionCard(
-                          'NAIA Terminal 1',
-                          'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=400&auto=format&fit=crop',
-                        ),
-                        _buildSuggestionCard(
-                          'City Hall',
-                          'https://images.unsplash.com/photo-1577493340887-b7bfff550145?q=80&w=400&auto=format&fit=crop',
-                        ),
-                        _buildSuggestionCard(
-                          'Baclaran',
-                          'https://images.unsplash.com/photo-1548625361-987702f30b92?q=80&w=400&auto=format&fit=crop',
-                        ),
-                      ],
-                    ),
-                  ],
                 ],
               ),
             ),
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildSuggestionCard(String title, String imageUrl) {
@@ -354,7 +357,7 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               spreadRadius: 2,
               blurRadius: 8,
               offset: const Offset(0, 4),
@@ -385,7 +388,7 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
                     stops: const [0.5, 1.0],
                   ),
                 ),

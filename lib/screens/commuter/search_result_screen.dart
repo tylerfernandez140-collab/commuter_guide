@@ -7,10 +7,10 @@ class SearchResultScreen extends StatelessWidget {
   final String destination;
 
   const SearchResultScreen({
-    Key? key,
+    super.key,
     required this.result,
     required this.destination,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

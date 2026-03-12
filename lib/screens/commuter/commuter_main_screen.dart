@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'commuter_home_screen.dart';
-import 'map_screen.dart';
+import '../google_maps_screen.dart';
 import 'chat_screen.dart';
 import 'suggest_landmark_screen.dart';
-import '../login_screen.dart';
-import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
 
 class CommuterMainScreen extends StatefulWidget {
-  const CommuterMainScreen({Key? key}) : super(key: key);
+  const CommuterMainScreen({super.key});
 
   @override
-  _CommuterMainScreenState createState() => _CommuterMainScreenState();
+  State<CommuterMainScreen> createState() => _CommuterMainScreenState();
 }
 
 class _CommuterMainScreenState extends State<CommuterMainScreen> {
@@ -19,7 +16,7 @@ class _CommuterMainScreenState extends State<CommuterMainScreen> {
 
   final List<Widget> _screens = [
     const CommuterHomeScreen(),
-    const MapScreen(),
+    const GoogleMapsScreen(),
     const ChatScreen(),
     const SuggestLandmarkScreen(),
   ];

@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/suggestion.dart';
 import '../services/api_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SuggestionsReviewScreen extends StatefulWidget {
-  const SuggestionsReviewScreen({Key? key}) : super(key: key);
+  const SuggestionsReviewScreen({super.key});
 
   @override
-  _SuggestionsReviewScreenState createState() =>
-      _SuggestionsReviewScreenState();
+  State<SuggestionsReviewScreen> createState() => _SuggestionsReviewScreenState();
 }
 
 class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
@@ -65,61 +65,74 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: Stack(
-              children: [
-                FutureBuilder<List<Suggestion>>(
-                  future: _suggestionsFuture,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    } else if (snapshot.hasError) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 48,
-                              color: Colors.red[300],
-                            ),
-                            const SizedBox(height: 16),
-                            Text('Error: ${snapshot.error}'),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: _refreshSuggestions,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      );
-                    } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                      return _buildEmptyState();
-                    }
-
-                    final suggestions = snapshot.data!;
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: suggestions.length,
-                      itemBuilder: (context, index) {
-                        return _buildSuggestionCard(suggestions[index]);
-                      },
-                    );
-                  },
-                ),
-                if (_isLoadingAction)
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(child: CircularProgressIndicator()),
-                  ),
-              ],
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
           ),
-        ],
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: Stack(
+                children: [
+                  FutureBuilder<List<Suggestion>>(
+                    future: _suggestionsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(
+                          child: CircularProgressIndicator(color: Color(0xFF0F766E)),
+                        );
+                      } else if (snapshot.hasError) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.red[300],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Error: ${snapshot.error}',
+                                style: GoogleFonts.poppins(color: Colors.white),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _refreshSuggestions,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                        return _buildEmptyState();
+                      }
+
+                      final suggestions = snapshot.data!;
+                      return ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: suggestions.length,
+                        itemBuilder: (context, index) {
+                          return _buildSuggestionCard(suggestions[index]);
+                        },
+                      );
+                    },
+                  ),
+                  if (_isLoadingAction)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -128,19 +141,16 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
-      decoration: BoxDecoration(
-        color: Colors.teal,
-        borderRadius: const BorderRadius.only(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+        ),
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -152,9 +162,9 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Review Suggestions',
-                style: TextStyle(
+                style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -167,7 +177,7 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
             padding: const EdgeInsets.only(left: 48),
             child: Text(
               'Approve or reject community contributions.',
-              style: TextStyle(fontSize: 16, color: Colors.teal.shade50),
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.white70),
             ),
           ),
         ],
@@ -188,12 +198,12 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
           const SizedBox(height: 16),
           Text(
             'All caught up!',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            style: GoogleFonts.poppins(fontSize: 18, color: Colors.white),
           ),
           const SizedBox(height: 8),
           Text(
             'No pending suggestions to review.',
-            style: TextStyle(color: Colors.grey[500]),
+            style: GoogleFonts.poppins(color: Colors.white70),
           ),
         ],
       ),
@@ -204,9 +214,10 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
     final isPending = suggestion.status == 'pending';
 
     return Card(
-      elevation: 2,
+      elevation: 8,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white.withValues(alpha: 0.95),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Column(
         children: [
           ListTile(
@@ -214,18 +225,18 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
             leading: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
+                color: const Color(0xFF2DD4BF).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.add_location,
-                color: Colors.blue,
+                color: Color(0xFF0F766E),
                 size: 28,
               ),
             ),
             title: Text(
               suggestion.landmarkName,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 18),
             ),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +249,7 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
                     Expanded(
                       child: Text(
                         'By: ${suggestion.submittedBy}',
-                        style: TextStyle(color: Colors.grey[600]),
+                        style: GoogleFonts.poppins(color: Colors.grey[600]),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -327,9 +338,9 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

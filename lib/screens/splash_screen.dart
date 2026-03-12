@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import '../widgets/jeep_icon.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
-  _SplashScreenState createState() => _SplashScreenState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
@@ -22,6 +23,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAuthenticated = await authProvider.tryAutoLogin();
+    if (!mounted) return;
 
     if (isAuthenticated) {
       if (authProvider.user?.role == 'admin') {
@@ -42,14 +44,12 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.directions_bus,
+            const JeepIconWhite(
               size: 100,
-              color: Colors.white,
             ),
             const SizedBox(height: 20),
             const Text(
-              'Jeepney Commuter Guide',
+              'Byahero',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,

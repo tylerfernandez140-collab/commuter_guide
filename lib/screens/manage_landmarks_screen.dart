@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/landmark.dart';
 import '../services/api_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'manage_routes_screen.dart';
+import 'manage_users_screen.dart';
 
 class ManageLandmarksScreen extends StatefulWidget {
-  const ManageLandmarksScreen({Key? key}) : super(key: key);
+  const ManageLandmarksScreen({super.key});
 
   @override
-  _ManageLandmarksScreenState createState() => _ManageLandmarksScreenState();
+  State<ManageLandmarksScreen> createState() => _ManageLandmarksScreenState();
 }
 
 class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
@@ -52,10 +55,9 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
     if (confirm == true) {
       setState(() => _isLoading = true);
       try {
-        await Provider.of<ApiService>(
-          context,
-          listen: false,
-        ).deleteLandmark(id);
+        if (!mounted) return;
+        final api = Provider.of<ApiService>(context, listen: false);
+        await api.deleteLandmark(id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -91,60 +93,123 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : FutureBuilder<List<Landmark>>(
-                    future: _landmarksFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 48,
-                                color: Colors.red[300],
-                              ),
-                              const SizedBox(height: 16),
-                              Text('Error: ${snapshot.error}'),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _refreshLandmarks,
-                                child: const Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                        return _buildEmptyState();
-                      }
-
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: snapshot.data!.length,
-                        itemBuilder: (context, index) {
-                          final landmark = snapshot.data![index];
-                          return _buildLandmarkCard(landmark);
-                        },
-                      );
-                    },
-                  ),
+      body: SafeArea(
+        bottom: false,
+        child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
           ),
-        ],
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(color: Color(0xFF0F766E)),
+                    )
+                  : FutureBuilder<List<Landmark>>(
+                      future: _landmarksFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(color: Color(0xFF0F766E)),
+                          );
+                        } else if (snapshot.hasError) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 48,
+                                  color: Colors.red[300],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  'Error: ${snapshot.error}',
+                                  style: GoogleFonts.poppins(color: Colors.white),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: _refreshLandmarks,
+                                  child: const Text('Retry'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return _buildEmptyState();
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: snapshot.data!.length,
+                          itemBuilder: (context, index) {
+                            final landmark = snapshot.data![index];
+                            return _buildLandmarkCard(landmark);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddEditDialog(),
-        label: const Text('Add Landmark'),
+        label: Text('Add Landmark', style: GoogleFonts.poppins()),
         icon: const Icon(Icons.add_location_alt),
-        backgroundColor: Colors.teal,
+        backgroundColor: const Color(0xFF0F766E),
+        foregroundColor: Colors.white,
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          currentIndex: 2,
+          onTap: (i) {
+            switch (i) {
+              case 0:
+                Navigator.pushReplacementNamed(context, '/dashboard');
+                break;
+              case 1:
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ManageRoutesScreen()),
+                );
+                break;
+              case 2:
+                break;
+              case 3:
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ManageUsersScreen()),
+                );
+                break;
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.alt_route), label: 'Routes'),
+            BottomNavigationBarItem(icon: Icon(Icons.place), label: 'Landmarks'),
+            BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
+          ],
+        ),
       ),
     );
   }
@@ -153,19 +218,16 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
-      decoration: BoxDecoration(
-        color: Colors.teal,
-        borderRadius: const BorderRadius.only(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+        ),
+        borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
           bottomRight: Radius.circular(30),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,9 +239,9 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               ),
               const SizedBox(width: 8),
-              const Text(
+              Text(
                 'Manage Landmarks',
-                style: TextStyle(
+                style: GoogleFonts.poppins(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -192,7 +254,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
             padding: const EdgeInsets.only(left: 48),
             child: Text(
               'Add, edit, or remove map locations.',
-              style: TextStyle(fontSize: 16, color: Colors.teal.shade50),
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.white70),
             ),
           ),
         ],
@@ -209,12 +271,12 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
           const SizedBox(height: 16),
           Text(
             'No landmarks yet',
-            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+            style: GoogleFonts.poppins(fontSize: 18, color: Colors.white),
           ),
           const SizedBox(height: 8),
           Text(
             'Tap the button below to add one.',
-            style: TextStyle(color: Colors.grey[500]),
+            style: GoogleFonts.poppins(color: Colors.white70),
           ),
         ],
       ),
@@ -223,26 +285,27 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
 
   Widget _buildLandmarkCard(Landmark landmark) {
     return Card(
-      elevation: 2,
+      elevation: 8,
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white.withValues(alpha: 0.95),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.teal.shade50,
+            color: const Color(0xFF2DD4BF).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(
             _getIconForType(landmark.type),
-            color: Colors.teal,
+            color: const Color(0xFF0F766E),
             size: 28,
           ),
         ),
         title: Text(
           landmark.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +315,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
               children: [
                 Icon(Icons.category, size: 14, color: Colors.grey[600]),
                 const SizedBox(width: 4),
-                Text(landmark.type, style: TextStyle(color: Colors.grey[600])),
+                Text(landmark.type, style: GoogleFonts.poppins(color: Colors.grey[600])),
               ],
             ),
             const SizedBox(height: 4),
@@ -263,7 +326,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
                 Expanded(
                   child: Text(
                     'Near: ${landmark.nearRoute}',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: GoogleFonts.poppins(color: Colors.grey[600]),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -275,7 +338,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
+              icon: const Icon(Icons.edit, color: Color(0xFF0F766E)),
               onPressed: () => _showAddEditDialog(landmark),
             ),
             IconButton(
@@ -310,14 +373,13 @@ class _LandmarkDialog extends StatefulWidget {
   final Landmark? landmark;
   final VoidCallback onSave;
 
-  const _LandmarkDialog({Key? key, this.landmark, required this.onSave})
-    : super(key: key);
+  const _LandmarkDialog({this.landmark, required this.onSave});
 
   @override
-  __LandmarkDialogState createState() => __LandmarkDialogState();
+  State<_LandmarkDialog> createState() => _LandmarkDialogState();
 }
 
-class __LandmarkDialogState extends State<_LandmarkDialog> {
+class _LandmarkDialogState extends State<_LandmarkDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _typeController;

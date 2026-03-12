@@ -5,7 +5,7 @@ import 'map_screen.dart';
 class RouteDetailsScreen extends StatelessWidget {
   final RouteModel route;
 
-  const RouteDetailsScreen({Key? key, required this.route}) : super(key: key);
+  const RouteDetailsScreen({super.key, required this.route});
 
   @override
   Widget build(BuildContext context) {
@@ -84,28 +84,40 @@ class RouteDetailsScreen extends StatelessWidget {
 
   Widget _buildInfoCard(BuildContext context, {required IconData icon, required String title, required String value}) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
           children: [
-            Container(
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.teal, size: 28),
+            Icon(
+              icon,
+              color: Colors.teal,
+              size: 24,
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                  SizedBox(height: 4),
-                  Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
             ),

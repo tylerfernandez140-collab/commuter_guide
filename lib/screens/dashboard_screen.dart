@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
 import '../services/stats_service.dart';
 import 'login_screen.dart';
 import 'manage_routes_screen.dart';
 import 'manage_landmarks_screen.dart';
 import 'suggestions_review_screen.dart';
+import 'manage_users_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
   @override
-  _DashboardScreenState createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
@@ -20,6 +23,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'users': 0,
   };
   bool isLoading = true;
+  static const double _radius = 28.0;
+  static const double _gapSmall = 12.0;
+  int _currentTab = 0;
 
   @override
   void initState() {
@@ -27,8 +33,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _loadStats();
   }
 
-  Future<void> _loadStats() async {
-    final dashboardStats = await StatsService.getDashboardStats();
+  Future<void> _loadStats({bool forceRefresh = false}) async {
+    final dashboardStats = await StatsService.getDashboardStats(forceRefresh: forceRefresh);
     setState(() {
       stats = dashboardStats;
       isLoading = false;
@@ -38,91 +44,201 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text(
-          'Admin Dashboard',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-        leading: const SizedBox.shrink(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-            onPressed: () {
-              _showLogoutDialog(context);
-            },
+      body: SafeArea(
+        bottom: false,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0F766E),
+                Color(0xFF2DD4BF),
+              ],
+            ),
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildHeader(context),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Overview',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : GridView.count(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 0.9,
+          child: LayoutBuilder(
+          builder: (context, constraints) {
+            return RefreshIndicator(
+              onRefresh: () async {
+                setState(() => isLoading = true);
+                await _loadStats(forceRefresh: true);
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      _buildHeader(context),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildDashboardCard(
-                              context,
-                              'Manage Routes',
-                              '${stats['routes']} Active',
-                              Icons.map_outlined,
-                              Colors.blue,
-                              ManageRoutesScreen(),
+                            Text(
+                              'Overview',
+                              style: GoogleFonts.poppins(
+                                fontSize: MediaQuery.textScalerOf(context).scale(20),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
-                            _buildDashboardCard(
-                              context,
-                              'Manage Landmarks',
-                              '${stats['landmarks']} Location${stats['landmarks'] == 1 ? '' : 's'}',
-                              Icons.place_outlined,
-                              Colors.orange,
-                              ManageLandmarksScreen(),
+                            const SizedBox(height: 8),
+                            (isLoading
+                              ? _buildSkeletonGrid(constraints)
+                              : GridView.count(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                  crossAxisCount: constraints.maxWidth < 330 ? 1 : 2,
+                                  childAspectRatio: 1.05,
+                                  children: [
+                                    _buildDashboardCard(
+                                      context,
+                                      'Manage Routes',
+                                      '${stats['routes']} Active',
+                                      Icons.map_outlined,
+                                      const Color(0xFF0F766E),
+                                      ManageRoutesScreen(),
+                                    ),
+                                    _buildDashboardCard(
+                                      context,
+                                      'Manage Landmarks',
+                                      '${stats['landmarks']} Location${stats['landmarks'] == 1 ? '' : 's'}',
+                                      Icons.place_outlined,
+                                      const Color(0xFFF59E0B),
+                                      ManageLandmarksScreen(),
+                                    ),
+                                    _buildDashboardCard(
+                                      context,
+                                      'Review Suggestions',
+                                      '${stats['pendingSuggestions']} Pending${stats['pendingSuggestions'] == 1 ? '' : 's'}',
+                                      Icons.rate_review_outlined,
+                                      const Color(0xFF2DD4BF),
+                                      SuggestionsReviewScreen(),
+                                    ),
+                                    _buildStatCard(
+                                      context,
+                                      'Total Users',
+                                      '${stats['users']}',
+                                      Icons.people_outline,
+                                      const Color(0xFF0F766E),
+                                    ),
+                                  ],
+                                )),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Quick Actions',
+                              style: GoogleFonts.poppins(
+                                fontSize: MediaQuery.textScalerOf(context).scale(18),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
                             ),
-                            _buildDashboardCard(
-                              context,
-                              'Review Suggestions',
-                              '${stats['pendingSuggestions']} Pending${stats['pendingSuggestions'] == 1 ? '' : 's'}',
-                              Icons.rate_review_outlined,
-                              Colors.purple,
-                              SuggestionsReviewScreen(),
-                            ),
-                            _buildStatCard(
-                              context,
-                              'Total Users',
-                              '${stats['users']}',
-                              Icons.people_outline,
-                              Colors.teal,
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => ManageRoutesScreen()),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.add_road),
+                                  label: Text('Add Route', style: GoogleFonts.poppins()),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0F766E),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => ManageLandmarksScreen()),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.add_location_alt),
+                                  label: Text('Add Landmark', style: GoogleFonts.poppins()),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFF59E0B),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Broadcast coming soon', style: GoogleFonts.poppins())),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.campaign),
+                                  label: Text('Broadcast Notice', style: GoogleFonts.poppins()),
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2DD4BF),
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                ],
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            );
+          },
+        ),
+      ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF0F766E),
+              Color(0xFF2DD4BF),
+            ],
+          ),
+        ),
+        child: BottomNavigationBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white70,
+          currentIndex: _currentTab,
+          onTap: (i) {
+            setState(() => _currentTab = i);
+            if (i == 1) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ManageRoutesScreen()),
+              );
+            } else if (i == 2) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ManageLandmarksScreen()),
+              );
+            } else if (i == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ManageUsersScreen()),
+              );
+            }
+          },
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
+            BottomNavigationBarItem(icon: Icon(Icons.alt_route), label: 'Routes'),
+            BottomNavigationBarItem(icon: Icon(Icons.place), label: 'Landmarks'),
+            BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Users'),
           ],
         ),
       ),
@@ -130,40 +246,133 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    final titleSize = width < 360 ? 22.0 : 28.0;
+    final subtitleSize = width < 360 ? 14.0 : 16.0;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(24, 10, 24, 30),
-      decoration: BoxDecoration(
-        color: Colors.teal,
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+      padding: const EdgeInsets.fromLTRB(24, 40, 24, 56),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(30),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Welcome Admin',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Welcome, Admin!',
+                        style: GoogleFonts.poppins(
+                          fontSize: MediaQuery.textScalerOf(context).scale(titleSize),
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.3,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.logout),
+                tooltip: 'Logout',
+                onPressed: () {
+                  _showLogoutDialog(context);
+                },
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Manage your transport system efficiently.',
+            style: GoogleFonts.poppins(
+              fontSize: MediaQuery.textScalerOf(context).scale(subtitleSize), 
+              color: Colors.white.withValues(alpha: 0.8),
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Manage your transport system efficiently.',
-            style: TextStyle(fontSize: 16, color: Colors.teal.shade50),
-          ),
         ],
+      ),
+    );
+  }
+
+  
+  Widget _buildSkeletonGrid(BoxConstraints constraints) {
+    final cols = constraints.maxWidth >= 900 ? 3 : constraints.maxWidth < 330 ? 1 : 2;
+    final items = List.generate(4, (_) => _buildSkeletonCard());
+    return GridView.count(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: cols,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 12,
+      childAspectRatio: constraints.maxWidth < 360
+          ? 0.88
+          : constraints.maxWidth < 480
+              ? 1.0
+              : constraints.maxWidth < 900
+                  ? 1.12
+                  : 1.15,
+      children: items,
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+      color: Colors.white.withValues(alpha: 0.9),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(height: _gapSmall),
+            Container(
+              width: 120,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            const SizedBox(height: _gapSmall),
+            Container(
+              width: 80,
+              height: 12,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -177,8 +386,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Widget screen,
   ) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 12,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+      color: Colors.white.withValues(alpha: 0.95),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -186,37 +396,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(builder: (context) => screen),
           );
         },
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 32, color: color),
+        borderRadius: BorderRadius.circular(_radius),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final iconSize = w >= 220 ? 40.0 : w >= 180 ? 36.0 : 32.0;
+            final ts = MediaQuery.textScalerOf(context);
+            final titleSize = ts.scale(w >= 220 ? 17.0 : w >= 180 ? 16.0 : 15.0);
+            final subSize = ts.scale(w >= 220 ? 13.0 : w >= 180 ? 12.0 : 11.0);
+            final pad = w >= 220 ? 16.0 : 14.0;
+            final gap = w >= 220 ? 14.0 : 12.0;
+            return Padding(
+              padding: EdgeInsets.all(pad),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: iconSize, color: color),
+                  ),
+                  SizedBox(height: gap),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: titleSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.poppins(
+                      fontSize: subSize,
+                      color: Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
@@ -230,30 +460,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Color color,
   ) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 32, color: color),
-            const SizedBox(height: 8),
-            Text(
-              count,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(_radius)),
+      color: Colors.white.withValues(alpha: 0.95),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final iconSize = w >= 220 ? 42.0 : w >= 180 ? 38.0 : 36.0;
+          final ts = MediaQuery.textScalerOf(context);
+          final countSize = ts.scale(w >= 220 ? 26.0 : 24.0);
+          final titleSize = ts.scale(w >= 220 ? 13.0 : 12.0);
+          final pad = w >= 220 ? 18.0 : 16.0;
+          final gap = w >= 220 ? 14.0 : 12.0;
+          return Padding(
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: iconSize, color: color),
+                SizedBox(height: gap),
+                Text(
+                  count,
+                  style: GoogleFonts.poppins(
+                    fontSize: countSize,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontSize: titleSize,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
             ),
-            Text(
-              title,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 class RoutingService {
   // OpenRouteService API Key (for Directions & Geocoding)
@@ -23,7 +24,7 @@ class RoutingService {
   // Get Route using OpenRouteService Directions API
   Future<List<LatLng>> getRoute(LatLng start, LatLng end) async {
     if (_orsApiKey.isEmpty) {
-      print('ORS API Key is missing in .env');
+      debugPrint('ORS API Key is missing in .env');
       // Fallback to straight line
       return [start, end];
     }
@@ -50,15 +51,15 @@ class RoutingService {
 
           return result;
         } else {
-          print('ORS API Error: No route found');
+          debugPrint('ORS API Error: No route found');
           return [start, end];
         }
       } else {
-        print('Failed to fetch route: ${response.statusCode} ${response.body}');
+        debugPrint('Failed to fetch route: ${response.statusCode} ${response.body}');
         return [start, end];
       }
     } catch (e) {
-      print('Routing Error: $e');
+      debugPrint('Routing Error: $e');
       return [start, end];
     }
   }
@@ -66,7 +67,7 @@ class RoutingService {
   // Geocode Address (Address -> LatLng)
   Future<LatLng?> getCoordinatesFromAddress(String address) async {
     if (_orsApiKey.isEmpty) {
-      print('ORS API Key is missing');
+      debugPrint('ORS API Key is missing');
       return null;
     }
 
@@ -87,10 +88,10 @@ class RoutingService {
           return LatLng(coordinates[1].toDouble(), coordinates[0].toDouble());
         }
       } else {
-        print('Geocoding Failed: ${response.body}');
+        debugPrint('Geocoding Failed: ${response.body}');
       }
     } catch (e) {
-      print('Geocoding Error: $e');
+      debugPrint('Geocoding Error: $e');
     }
     return null;
   }
@@ -98,7 +99,7 @@ class RoutingService {
   // Reverse Geocode (LatLng -> Address)
   Future<String?> getAddressFromCoordinates(LatLng point) async {
     if (_orsApiKey.isEmpty) {
-      print('ORS API Key is missing');
+      debugPrint('ORS API Key is missing');
       return null;
     }
 
@@ -119,10 +120,10 @@ class RoutingService {
           return label;
         }
       } else {
-        print('Reverse Geocoding Failed: ${response.body}');
+        debugPrint('Reverse Geocoding Failed: ${response.body}');
       }
     } catch (e) {
-      print('Reverse Geocoding Error: $e');
+      debugPrint('Reverse Geocoding Error: $e');
     }
     return null;
   }

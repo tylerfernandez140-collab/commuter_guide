@@ -17,12 +17,16 @@ class Suggestion {
 
   factory Suggestion.fromJson(Map<String, dynamic> json) {
     return Suggestion(
-      id: json['_id'],
-      landmarkName: json['landmark_name'],
+      id: (json['_id'] ?? '').toString(),
+      landmarkName: (json['landmark_name'] ?? 'Unnamed').toString(),
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
-      status: json['status'],
-      submittedBy: json['submitted_by'] is Map ? json['submitted_by']['full_name'] : json['submitted_by'],
+      status: (json['status'] ?? 'pending').toString(),
+      submittedBy: json['submitted_by'] == null
+          ? 'Anonymous'
+          : (json['submitted_by'] is Map
+              ? (json['submitted_by']['full_name'] ?? 'Anonymous').toString()
+              : json['submitted_by'].toString()),
     );
   }
 }

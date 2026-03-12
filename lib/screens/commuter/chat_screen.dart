@@ -4,10 +4,10 @@ import 'package:geolocator/geolocator.dart';
 import '../../services/api_service.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({Key? key}) : super(key: key);
+  const ChatScreen({super.key});
 
   @override
-  _ChatScreenState createState() => _ChatScreenState();
+  State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
@@ -49,7 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _currentPosition = position;
       });
     } catch (e) {
-      print("Error getting location: $e");
+      debugPrint("Error getting location: $e");
     }
   }
 
@@ -68,13 +68,13 @@ class _ChatScreenState extends State<ChatScreen> {
       if (_currentPosition == null) {
         await _determinePosition();
       }
+      if (!mounted) return;
 
       final reply = await Provider.of<ApiService>(context, listen: false).chat(
         message,
         lat: _currentPosition?.latitude,
         lng: _currentPosition?.longitude,
-        landmarks:
-            [], // TODO: Add logic to find nearby landmarks from backend or local list
+        landmarks: [],
       );
 
       setState(() {
@@ -100,56 +100,57 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           _buildHeader(),
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 8.0,
-              ),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                final isUser = msg['sender'] == 'user';
-                return Align(
-                  alignment: isUser
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4.0),
-                    padding: const EdgeInsets.all(16.0),
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.75,
+            child: _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
                     ),
-                    decoration: BoxDecoration(
-                      color: isUser ? Colors.teal : Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(20),
-                        topRight: const Radius.circular(20),
-                        bottomLeft: isUser
-                            ? const Radius.circular(20)
-                            : Radius.zero,
-                        bottomRight: isUser
-                            ? Radius.zero
-                            : const Radius.circular(20),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.1),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = _messages[index];
+                      final isUser = msg['sender'] == 'user';
+                      return Align(
+                        alignment: isUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4.0),
+                          padding: const EdgeInsets.all(16.0),
+                          constraints: BoxConstraints(
+                            maxWidth:
+                                MediaQuery.of(context).size.width * 0.75,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isUser ? Colors.teal : Colors.white,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(20),
+                              topRight: const Radius.circular(20),
+                              bottomLeft:
+                                  isUser ? const Radius.circular(20) : Radius.zero,
+                              bottomRight:
+                                  isUser ? Radius.zero : const Radius.circular(20),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                              color: Colors.grey.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Text(
+                            msg['text']!,
+                            style: TextStyle(
+                              color: isUser ? Colors.white : Colors.black87,
+                              fontSize: 15,
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Text(
-                      msg['text']!,
-                      style: TextStyle(
-                        color: isUser ? Colors.white : Colors.black87,
-                        fontSize: 15,
-                      ),
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           if (_isLoading)
             const Padding(
@@ -231,59 +232,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(Map<String, String> msg, bool isUser) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isUser) ...[
-            CircleAvatar(
-              backgroundColor: Colors.teal.shade100,
-              radius: 16,
-              child: const Icon(Icons.smart_toy, size: 18, color: Colors.teal),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: isUser ? Colors.teal : Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(20),
-                  topRight: const Radius.circular(20),
-                  bottomLeft: isUser ? const Radius.circular(20) : Radius.zero,
-                  bottomRight: isUser ? Radius.zero : const Radius.circular(20),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Text(
-                msg['text']!,
-                style: TextStyle(
-                  color: isUser ? Colors.white : Colors.black87,
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-              ),
-            ),
-          ),
-          if (isUser) const SizedBox(width: 40), // Spacing for user alignment
-          if (!isUser) const SizedBox(width: 40), // Spacing for bot alignment
-        ],
-      ),
-    );
-  }
-
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
@@ -295,7 +243,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
+            color: Colors.teal.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -306,7 +254,7 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.smart_toy, color: Colors.white, size: 28),
@@ -341,7 +289,7 @@ class _ChatScreenState extends State<ChatScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -5),
             blurRadius: 10,
           ),

@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 import 'package:latlong2/latlong.dart';
 import 'dart:async';
 import '../models/route_model.dart';
 import '../services/api_service.dart';
 import '../services/routing_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/foundation.dart';
 
 class AddEditRouteScreen extends StatefulWidget {
   final RouteModel? route;
 
-  AddEditRouteScreen({this.route});
+  const AddEditRouteScreen({super.key, this.route});
 
   @override
-  _AddEditRouteScreenState createState() => _AddEditRouteScreenState();
+  State<AddEditRouteScreen> createState() => _AddEditRouteScreenState();
 }
 
 class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
@@ -28,14 +31,22 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
 
   final FocusNode _startFocusNode = FocusNode();
   final FocusNode _endFocusNode = FocusNode();
+  late VoidCallback _startFocusListener;
+  late VoidCallback _endFocusListener;
 
   String _vehicleType = 'jeepney';
 
-  // Map state
-  final MapController _mapController = MapController();
+  gmap.GoogleMapController? _gmapController;
+  final MapController _fallbackMapController = MapController();
+
+  bool get _useGoogleMaps {
+    if (kIsWeb) return true;
+    final platform = defaultTargetPlatform;
+    return platform == TargetPlatform.android || platform == TargetPlatform.iOS;
+  }
 
   // _waypoints: The specific points the user tapped (Start, stops, End)
-  List<LatLng> _waypoints = [];
+  final List<LatLng> _waypoints = [];
 
   // Track start/end specifically for logic
   LatLng? _startLocation;
@@ -43,11 +54,11 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
 
   // _segments: The detailed road paths between waypoints
   // Segment[i] connects Waypoint[i] to Waypoint[i+1]
-  List<List<LatLng>> _segments = [];
+  final List<List<LatLng>> _segments = [];
 
   static const LatLng _paranaqueCenter = LatLng(14.4793, 121.0195);
   bool _isRouting = false;
-  String _statusMessage = "Calculating route...";
+  final String _statusMessage = "Calculating route...";
 
   // Debounce timers for auto-geocoding
   Timer? _startGeocodeTimer;
@@ -75,12 +86,16 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     _endController.addListener(_onEndPointChanged);
 
     // Listen to focus changes to know which field to update on map tap
-    _startFocusNode.addListener(() {
-      setState(() {}); // Rebuild to show active field visually if needed
-    });
-    _endFocusNode.addListener(() {
+    _startFocusListener = () {
+      if (!mounted) return;
       setState(() {});
-    });
+    };
+    _endFocusListener = () {
+      if (!mounted) return;
+      setState(() {});
+    };
+    _startFocusNode.addListener(_startFocusListener);
+    _endFocusNode.addListener(_endFocusListener);
 
     if (widget.route != null) {
       _vehicleType = widget.route!.vehicleType;
@@ -110,6 +125,8 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
   void dispose() {
     _startGeocodeTimer?.cancel();
     _endGeocodeTimer?.cancel();
+    _startFocusNode.removeListener(_startFocusListener);
+    _endFocusNode.removeListener(_endFocusListener);
     _nameController.dispose();
     _startController.dispose();
     _endController.dispose();
@@ -171,7 +188,9 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     });
 
     // Reverse geocode
-    final address = await _routingService.getAddressFromCoordinates(point);
+    final address = await _routingService.getAddressFromCoordinates(
+      LatLng(point.latitude, point.longitude)
+    );
     if (address != null && mounted) {
       setState(() {
         _startController.text = address;
@@ -188,7 +207,9 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     });
 
     // Reverse geocode
-    final address = await _routingService.getAddressFromCoordinates(point);
+    final address = await _routingService.getAddressFromCoordinates(
+      LatLng(point.latitude, point.longitude)
+    );
     if (address != null && mounted) {
       setState(() {
         _endController.text = address;
@@ -204,6 +225,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     if (_endLocation != null) _waypoints.add(_endLocation!);
   }
 
+
   Future<void> _geocodeAndSetStart() async {
     final query = _startController.text;
     if (query.isEmpty) return;
@@ -211,12 +233,22 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     final point = await _routingService.getCoordinatesFromAddress(query);
     if (point != null) {
       setState(() {
-        _startLocation = point;
+        _startLocation = LatLng(point.latitude, point.longitude);
         _updateWaypointsList();
-        _mapController.move(point, 15);
+        if (_useGoogleMaps) {
+          _gmapController?.animateCamera(
+            gmap.CameraUpdate.newLatLngZoom(
+              gmap.LatLng(point.latitude, point.longitude),
+              15,
+            ),
+          );
+        } else {
+          _fallbackMapController.move(LatLng(point.latitude, point.longitude), 15);
+        }
       });
       _calculateRoute();
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Start location not found')));
@@ -230,7 +262,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
     final point = await _routingService.getCoordinatesFromAddress(query);
     if (point != null) {
       setState(() {
-        _endLocation = point;
+        _endLocation = LatLng(point.latitude, point.longitude);
         _updateWaypointsList();
         // Don't necessarily move map if we want to see the whole route,
         // but moving to end point is okay.
@@ -238,6 +270,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
       });
       _calculateRoute();
     } else {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('End location not found')));
@@ -252,8 +285,8 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
 
     try {
       final path = await _routingService.getRoute(
-        _startLocation!,
-        _endLocation!,
+        LatLng(_startLocation!.latitude, _startLocation!.longitude),
+        LatLng(_endLocation!.latitude, _endLocation!.longitude),
       );
 
       setState(() {
@@ -273,20 +306,31 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
           if (p.longitude > maxLng) maxLng = p.longitude;
         }
 
-        // Add padding
-        final bounds = LatLngBounds(
-          LatLng(minLat, minLng),
-          LatLng(maxLat, maxLng),
-        );
-
-        _mapController.fitCamera(
-          CameraFit.bounds(bounds: bounds, padding: EdgeInsets.all(50)),
-        );
+        if (_displayRoute.isNotEmpty) {
+          if (_useGoogleMaps) {
+            final gbounds = gmap.LatLngBounds(
+              southwest: gmap.LatLng(minLat, minLng),
+              northeast: gmap.LatLng(maxLat, maxLng),
+            );
+            _gmapController?.animateCamera(
+              gmap.CameraUpdate.newLatLngBounds(gbounds, 50),
+            );
+          } else {
+            final fbounds = LatLngBounds(
+              LatLng(minLat, minLng),
+              LatLng(maxLat, maxLng),
+            );
+            _fallbackMapController.fitCamera(
+              CameraFit.bounds(bounds: fbounds, padding: EdgeInsets.all(50)),
+            );
+          }
+        }
       }
     } catch (e) {
-      print("Route error: $e");
+      debugPrint("Route error: $e");
 
       // Show error to user
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Routing failed: $e. using straight line.'),
@@ -336,67 +380,119 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.route == null ? 'New Route' : 'Edit Route'),
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          bool isWide = constraints.maxWidth > 800;
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+          ),
+        ),
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  bool isWide = constraints.maxWidth > 800;
 
-          if (isWide) {
-            // Desktop/Web Layout (Side-by-Side)
-            return Row(
-              children: [
-                Expanded(
-                  flex: 1,
-                  child: Container(
-                    padding: EdgeInsets.all(24),
-                    color: Colors.grey[50],
-                    child: _buildForm(context),
-                  ),
-                ),
-                Expanded(flex: 2, child: _buildMapSection()),
-              ],
-            );
-          } else {
-            // Mobile Layout (Vertical Stack)
-            return Column(
-              children: [
-                // Map takes top 45%
-                Expanded(flex: 9, child: _buildMapSection()),
-                // Form takes bottom 55%
-                Expanded(
-                  flex: 11,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(24),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 10,
-                          offset: Offset(0, -5),
+                  if (isWide) {
+                    return Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: Container(
+                            padding: EdgeInsets.all(24),
+                            color: Colors.white,
+                            child: _buildForm(context),
+                          ),
+                        ),
+                        Expanded(flex: 2, child: _buildMapSection()),
+                      ],
+                    );
+                  } else {
+                    return Column(
+                      children: [
+                        Expanded(flex: 9, child: _buildMapSection()),
+                        Expanded(
+                          flex: 11,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 10,
+                                  offset: Offset(0, -5),
+                                ),
+                              ],
+                            ),
+                            child: _buildForm(context),
+                          ),
                         ),
                       ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(24),
-                      ),
-                      child: _buildForm(context),
-                    ),
-                  ),
+                    );
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _saveRoute,
+        icon: const Icon(Icons.save),
+        label: Text('Save Route', style: GoogleFonts.poppins()),
+        backgroundColor: const Color(0xFF0F766E),
+        foregroundColor: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 60, 24, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(30),
+          bottomRight: Radius.circular(30),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.route == null ? 'New Route' : 'Edit Route',
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-              ],
-            );
-          }
-        },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.only(left: 48),
+            child: Text(
+              'Draw the path and fill in route details.',
+              style: GoogleFonts.poppins(fontSize: 16, color: Colors.white70),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -404,74 +500,114 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
   Widget _buildMapSection() {
     return Stack(
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: MapOptions(
-            initialCenter: _waypoints.isNotEmpty
-                ? _waypoints.first
-                : _paranaqueCenter,
-            initialZoom: 13.5,
-            onTap: (tapPosition, point) => _handleMapTap(point),
-            interactionOptions: InteractionOptions(
-              flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+        if (_useGoogleMaps)
+          gmap.GoogleMap(
+            initialCameraPosition: gmap.CameraPosition(
+              target: _waypoints.isNotEmpty
+                  ? gmap.LatLng(_waypoints.first.latitude, _waypoints.first.longitude)
+                  : gmap.LatLng(_paranaqueCenter.latitude, _paranaqueCenter.longitude),
+              zoom: 13.5,
             ),
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.example.commuter_guide',
-            ),
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: _displayRoute,
-                  strokeWidth: 5.0,
-                  color: Theme.of(context).primaryColor,
-                  isDotted: false,
+            onMapCreated: (c) => _gmapController = c,
+            onTap: (pos) => _handleMapTap(LatLng(pos.latitude, pos.longitude)),
+            minMaxZoomPreference: const gmap.MinMaxZoomPreference(2.0, 18.0),
+            markers: {
+              if (_waypoints.isNotEmpty)
+                gmap.Marker(
+                  markerId: const gmap.MarkerId('start'),
+                  position: gmap.LatLng(_waypoints.first.latitude, _waypoints.first.longitude),
+                  icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueGreen),
                 ),
-              ],
+              if (_waypoints.length > 1)
+                gmap.Marker(
+                  markerId: const gmap.MarkerId('end'),
+                  position: gmap.LatLng(_waypoints.last.latitude, _waypoints.last.longitude),
+                  icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueRed),
+                ),
+            },
+            polylines: {
+              if (_displayRoute.isNotEmpty)
+                gmap.Polyline(
+                  polylineId: const gmap.PolylineId('route'),
+                  points: _displayRoute
+                      .map((p) => gmap.LatLng(p.latitude, p.longitude))
+                      .toList(),
+                  color: Theme.of(context).primaryColor,
+                  width: 5,
+                ),
+            },
+            compassEnabled: true,
+            mapToolbarEnabled: false,
+            zoomControlsEnabled: false,
+            myLocationEnabled: false,
+          )
+        else
+          FlutterMap(
+            mapController: _fallbackMapController,
+            options: MapOptions(
+              initialCenter: _waypoints.isNotEmpty ? _waypoints.first : _paranaqueCenter,
+              initialZoom: 13.5,
+              onTap: (tapPosition, point) => _handleMapTap(point),
+              minZoom: 2.0,
+              maxZoom: 18.0,
             ),
-            MarkerLayer(
-              markers: [
-                if (_waypoints.isNotEmpty)
-                  Marker(
-                    point: _waypoints.first,
-                    width: 40,
-                    height: 40,
-                    child: Icon(
-                      Icons.location_on,
-                      color: Colors.green,
-                      size: 40,
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.byahero',
+              ),
+              PolylineLayer(
+                polylines: [
+                  if (_displayRoute.isNotEmpty)
+                    Polyline(
+                      points: _displayRoute,
+                      strokeWidth: 5.0,
+                      color: Theme.of(context).primaryColor,
                     ),
-                  ),
-                if (_waypoints.length > 1)
-                  Marker(
-                    point: _waypoints.last,
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.location_on, color: Colors.red, size: 40),
-                  ),
-                ..._waypoints
-                    .skip(1)
-                    .take(_waypoints.length > 1 ? _waypoints.length - 2 : 0)
-                    .map(
-                      (point) => Marker(
-                        point: point,
-                        width: 12,
-                        height: 12,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).primaryColor,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
-                          ),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  if (_waypoints.isNotEmpty)
+                    Marker(
+                      point: _waypoints.first,
+                      width: 40,
+                      height: 40,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow,
+                          color: Colors.white,
+                          size: 20,
                         ),
                       ),
                     ),
-              ],
-            ),
-          ],
-        ),
+                  if (_waypoints.length > 1)
+                    Marker(
+                      point: _waypoints.last,
+                      width: 40,
+                      height: 40,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.flag,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
         // Loading Indicator
         if (_isRouting)
           Positioned(
@@ -507,16 +643,16 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
                 heroTag: "undo",
                 onPressed: _undoPoint,
                 backgroundColor: Colors.white,
-                child: Icon(Icons.undo, color: Colors.black87),
                 tooltip: 'Undo last point',
+                child: Icon(Icons.undo, color: Colors.black87),
               ),
               SizedBox(height: 8),
               FloatingActionButton.small(
                 heroTag: "clear",
                 onPressed: _clearPoints,
                 backgroundColor: Colors.white,
-                child: Icon(Icons.delete_outline, color: Colors.red),
                 tooltip: 'Clear route',
+                child: Icon(Icons.delete_outline, color: Colors.red),
               ),
             ],
           ),
@@ -555,7 +691,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
         children: [
           Text(
             "Route Details",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 20),
           _buildTextField(_nameController, 'Route Name', Icons.directions_bus),
@@ -605,29 +741,7 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
               ),
             ],
           ),
-          SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton(
-              onPressed: _saveRoute,
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                backgroundColor: Theme.of(context).primaryColor,
-                elevation: 2,
-              ),
-              child: Text(
-                'Save Route',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
+          SizedBox(height: 80),
         ],
       ),
     );
@@ -646,8 +760,10 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
       focusNode: focusNode,
       onFieldSubmitted: onSubmitted != null ? (_) => onSubmitted() : null,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         labelText: label,
+        labelStyle: GoogleFonts.poppins(color: Colors.grey[700]),
         prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -673,22 +789,69 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
   }
 
   Widget _buildDropdown() {
-    return DropdownButtonFormField<String>(
-      value: _vehicleType,
-      decoration: InputDecoration(
-        labelText: 'Vehicle Type',
-        prefixIcon: Icon(Icons.directions_car, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-      ),
-      items: ['jeepney', 'minibus', 'ejeepney']
-          .map(
-            (type) =>
-                DropdownMenuItem(value: type, child: Text(type.toUpperCase())),
-          )
-          .toList(),
-      onChanged: (val) => setState(() => _vehicleType = val!),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return DropdownMenu<String>(
+          width: constraints.maxWidth,
+          expandedInsets: EdgeInsets.zero,
+          initialSelection: _vehicleType,
+          enableSearch: false,
+          requestFocusOnTap: false,
+          enableFilter: false,
+          leadingIcon: Icon(
+            _vehicleType == 'jeepney'
+                ? Icons.directions_bus
+                : _vehicleType == 'minibus'
+                    ? Icons.airport_shuttle
+                    : Icons.electric_car,
+            size: 18,
+            color: const Color(0xFF0F766E),
+          ),
+          label: Text(
+            'Vehicle Type',
+            style: GoogleFonts.poppins(color: Colors.grey[700]),
+          ),
+          textStyle: GoogleFonts.poppins(fontSize: 16, color: Colors.black87),
+          onSelected: (val) {
+            if (val != null) setState(() => _vehicleType = val);
+          },
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.grey.shade50,
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          menuStyle: MenuStyle(
+            backgroundColor: const WidgetStatePropertyAll(Colors.white),
+            elevation: const WidgetStatePropertyAll(6),
+            padding:
+                const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8)),
+            fixedSize: WidgetStatePropertyAll(
+              Size.fromWidth(constraints.maxWidth),
+            ),
+          ),
+          dropdownMenuEntries: ['jeepney', 'minibus', 'ejeepney']
+              .map(
+                (type) => DropdownMenuEntry<String>(
+                  value: type,
+                  label: type.toUpperCase(),
+                  leadingIcon: Icon(
+                    type == 'jeepney'
+                        ? Icons.directions_bus
+                        : type == 'minibus'
+                            ? Icons.airport_shuttle
+                            : Icons.electric_car,
+                    size: 18,
+                    color: const Color(0xFF0F766E),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 
@@ -731,11 +894,14 @@ class _AddEditRouteScreenState extends State<AddEditRouteScreen> {
         } else {
           await _apiService.updateRoute(newRoute.id, newRoute);
         }
+        if (!mounted) return;
         Navigator.pop(context);
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        }
       }
     }
   }

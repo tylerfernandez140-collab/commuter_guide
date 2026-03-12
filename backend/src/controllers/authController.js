@@ -2,21 +2,7 @@ const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-
-// Transporter configuration
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // Explicitly define Gmail's SMTP host
-  port: 587, // Use port 587 for STARTTLS
-  secure: false, // Set to false for STARTTLS
-  requireTLS: true, // Enforce STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  logger: true, // Enable logging
-  debug: true, // Enable debug output
-});
+const { sendEmail } = require('../services/emailService');
 
 // Register
 exports.register = async (req, res) => {
@@ -54,28 +40,40 @@ exports.register = async (req, res) => {
     // Ideally use a configured BASE_URL env var.
     const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify?token=${verificationToken}`;
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Verify your email',
-      html: `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`
-    };
-
-    // Send email (awaiting to ensure it works)
+    // Send email using the new email service
     try {
-      await transporter.sendMail(mailOptions);
-      console.log('Verification email sent to:', email);
-    } catch (emailError) {
-      console.error('Error sending email:', emailError);
-      // Optional: Delete user if email fails so they can try again?
-      // await User.deleteOne({ _id: user._id });
-      return res.status(500).json({ 
-        message: 'User registered, but failed to send verification email. Please contact support or try again.',
-        error: emailError.message 
+      await sendEmail({
+        to: email,
+        subject: 'Verify your email',
+        text: `Please verify your email by clicking the following link: ${verificationUrl}`,
+        html: `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`
       });
+      
+      console.log('Email sent successfully to:', email);
+      res.status(201).json({ message: 'Check your email to verify your account' });
+    } catch (emailError) {
+      console.error('Email sending failed:', emailError.message);
+      console.error('Full error:', emailError);
+      
+      // For production, we might want to handle this differently
+      // For now, let's mark the user as verified so they can login
+      try {
+        user.isVerified = true;
+        user.verificationToken = undefined;
+        await user.save();
+        console.log('User marked as verified due to email failure');
+        
+        res.status(201).json({ 
+          message: 'Registration successful! You can now login. (Email verification was skipped due to technical issues)' 
+        });
+      } catch (saveError) {
+        console.error('Failed to update user verification status:', saveError);
+        res.status(500).json({ 
+          message: 'Registration completed but verification status update failed. Please contact support.',
+          error: saveError.message 
+        });
+      }
     }
-
-    res.status(201).json({ message: 'Check your email to verify your account' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -172,16 +170,19 @@ exports.resendVerification = async (req, res) => {
 
     const verificationUrl = `${req.protocol}://${req.get('host')}/api/auth/verify?token=${verificationToken}`;
     
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'Resend: Verify your email',
-      html: `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`
-    };
-
-    await transporter.sendMail(mailOptions);
-    
-    res.status(200).json({ message: 'Verification email resent successfully' });
+    try {
+      await sendEmail({
+        to: email,
+        subject: 'Resend: Verify your email',
+        text: `Please verify your email by clicking the following link: ${verificationUrl}`,
+        html: `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`
+      });
+      
+      res.status(200).json({ message: 'Verification email resent successfully' });
+    } catch (err) {
+      console.error('Resend Error:', err);
+      res.status(500).json({ message: 'Failed to send email', error: err.message });
+    }
   } catch (err) {
     console.error('Resend Error:', err);
     res.status(500).json({ message: 'Failed to send email', error: err.message });

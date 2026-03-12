@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class InstructionsScreen extends StatelessWidget {
   final List<String> instructions;
 
-  const InstructionsScreen({Key? key, required this.instructions}) : super(key: key);
+  const InstructionsScreen({super.key, required this.instructions});
 
   @override
   Widget build(BuildContext context) {
@@ -16,9 +16,9 @@ class InstructionsScreen extends StatelessWidget {
           return Card(
             child: ListTile(
               leading: CircleAvatar(
-                child: Text('${index + 1}'),
                 backgroundColor: Colors.teal,
                 foregroundColor: Colors.white,
+                child: Text('${index + 1}'),
               ),
               title: Text(instructions[index]),
             ),

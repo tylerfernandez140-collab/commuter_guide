@@ -3,10 +3,10 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 
 class SuggestLandmarkScreen extends StatefulWidget {
-  const SuggestLandmarkScreen({Key? key}) : super(key: key);
+  const SuggestLandmarkScreen({super.key});
 
   @override
-  _SuggestLandmarkScreenState createState() => _SuggestLandmarkScreenState();
+  State<SuggestLandmarkScreen> createState() => _SuggestLandmarkScreenState();
 }
 
 class _SuggestLandmarkScreenState extends State<SuggestLandmarkScreen> {
@@ -95,7 +95,7 @@ class _SuggestLandmarkScreenState extends State<SuggestLandmarkScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.teal.withOpacity(0.3),
+            color: Colors.teal.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -241,7 +241,7 @@ class _SuggestLandmarkScreenState extends State<SuggestLandmarkScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 elevation: 4,
-                shadowColor: Colors.teal.withOpacity(0.4),
+                shadowColor: Colors.teal.withValues(alpha: 0.4),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,

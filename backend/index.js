@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(cors());
 
 // Import Routes
-const authRoutes = require('./routes/authRoutes');
+const authRoutes = require('./src/routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const routeRoutes = require('./routes/routeRoutes');
 const landmarkRoutes = require('./routes/landmarkRoutes');
@@ -26,7 +26,7 @@ app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/chat', chatRoutes);
 
 // Import models
-const User = require('./models/User');
+const User = require('./src/models/User');
 const Route = require('./models/Route');
 const Landmark = require('./models/Landmark');
 const SearchLog = require('./models/SearchLog');

@@ -3,28 +3,33 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/route_model.dart';
 import '../models/landmark.dart';
 import '../models/suggestion.dart';
+import '../models/user.dart';
 
 class ApiService {
   static String get baseUrl {
+    final envUrl = dotenv.env['API_BASE_URL'];
+    if (envUrl != null && envUrl.isNotEmpty) {
+      return envUrl;
+    }
     return 'https://commuter-guide.onrender.com/api';
   }
 
   // Auth
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      print('Attempting login to $baseUrl/auth/login');
+      debugPrint('Attempting login to $baseUrl/auth/login');
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
 
-      print('Login response status: ${response.statusCode}');
-      print('Login response body: ${response.body}');
+      debugPrint('Login response status: ${response.statusCode}');
+      debugPrint('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -37,10 +42,10 @@ class ApiService {
         throw Exception(error['message'] ?? 'Failed to login');
       }
     } on SocketException catch (e) {
-      print('Network error: $e');
+      debugPrint('Network error: $e');
       throw Exception('Cannot connect to server. Ensure backend is running.');
     } catch (e) {
-      print('Login error: $e');
+      debugPrint('Login error: $e');
       throw Exception('Login failed: $e');
     }
   }
@@ -279,6 +284,31 @@ class ApiService {
       return jsonDecode(response.body)['reply'];
     } else {
       throw Exception('Chat failed');
+    }
+  }
+
+  // Users
+  Future<List<User>> getUsers() async {
+    final token = await getToken();
+    final response = await http.get(
+      Uri.parse('$baseUrl/users'),
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((json) => User.fromJson(json)).toList();
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final cachedUser = prefs.getString('user');
+      if (cachedUser != null) {
+        try {
+          final u = User.fromJson(jsonDecode(cachedUser));
+          return [u];
+        } catch (_) {
+          return [];
+        }
+      }
+      return [];
     }
   }
 }
