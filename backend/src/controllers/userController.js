@@ -11,3 +11,15 @@ exports.getProfile = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.listUsers = async (req, res) => {
+  try {
+    const users = await User.find({ role: 'commuter' })
+      .select('_id full_name email role');
+
+    const filtered = users.filter(u => String(u._id) !== String(req.user.id));
+    res.status(200).json(filtered);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};

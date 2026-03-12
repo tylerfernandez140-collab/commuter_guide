@@ -21,8 +21,6 @@ app.use(
     credentials: true,
   })
 );
-// Handle preflight
-app.options('*', cors());
 
 // Route files
 const authRoutes = require('./routes/authRoutes');
@@ -45,6 +43,11 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/stats', statsRoutes);
 
 const PORT = process.env.PORT || 3000;
+
+// Health check
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
