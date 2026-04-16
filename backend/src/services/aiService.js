@@ -48,6 +48,12 @@ ${userQuestion}
 
     return response.choices[0].message.content;
   } catch (error) {
+    console.error("=== OPENAI ERROR START ===");
+    console.error(error);
+    console.error("message:", error.message);
+    console.error("status:", error.status);
+    console.error("response:", error.response?.data);
+    console.error("=== OPENAI ERROR END ===");
     return "I'm having trouble connecting to the AI service. Please try again later.";
   }
 };
