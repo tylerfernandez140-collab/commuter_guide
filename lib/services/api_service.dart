@@ -10,6 +10,16 @@ import '../models/suggestion.dart';
 import '../models/user.dart';
 
 class ApiService {
+  static const Duration _cacheTtl = Duration(seconds: 60);
+  static List<RouteModel>? _routesCache;
+  static DateTime? _routesLastFetch;
+  static List<Landmark>? _landmarksCache;
+  static DateTime? _landmarksLastFetch;
+  static List<User>? _usersCache;
+  static DateTime? _usersLastFetch;
+  static int? get routesCachedCount => _routesCache?.length;
+  static int? get landmarksCachedCount => _landmarksCache?.length;
+  static int? get usersCachedCount => _usersCache?.length;
   static String get baseUrl {
     final envUrl = dotenv.env['API_BASE_URL'];
     if (envUrl != null && envUrl.isNotEmpty) {
@@ -80,11 +90,20 @@ class ApiService {
   }
 
   // Routes
-  Future<List<RouteModel>> getRoutes() async {
+  Future<List<RouteModel>> getRoutes({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh && _routesCache != null && _routesLastFetch != null) {
+      if (now.difference(_routesLastFetch!) < _cacheTtl) {
+        return _routesCache!;
+      }
+    }
     final response = await http.get(Uri.parse('$baseUrl/routes'));
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => RouteModel.fromJson(json)).toList();
+      final result = data.map((json) => RouteModel.fromJson(json)).toList();
+      _routesCache = result;
+      _routesLastFetch = now;
+      return result;
     } else {
       throw Exception('Failed to load routes: ${response.body}');
     }
@@ -129,14 +148,26 @@ class ApiService {
     if (response.statusCode != 200) {
       throw Exception('Failed to delete route: ${response.body}');
     }
+    // Clear cache after successful delete
+    _routesCache = null;
+    _routesLastFetch = null;
   }
 
   // Landmarks
-  Future<List<Landmark>> getLandmarks() async {
+  Future<List<Landmark>> getLandmarks({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh && _landmarksCache != null && _landmarksLastFetch != null) {
+      if (now.difference(_landmarksLastFetch!) < _cacheTtl) {
+        return _landmarksCache!;
+      }
+    }
     final response = await http.get(Uri.parse('$baseUrl/landmarks'));
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => Landmark.fromJson(json)).toList();
+      final result = data.map((json) => Landmark.fromJson(json)).toList();
+      _landmarksCache = result;
+      _landmarksLastFetch = now;
+      return result;
     } else {
       throw Exception('Failed to load landmarks');
     }
@@ -181,6 +212,9 @@ class ApiService {
     if (response.statusCode != 200) {
       throw Exception('Failed to delete landmark: ${response.body}');
     }
+    // Clear cache after successful delete
+    _landmarksCache = null;
+    _landmarksLastFetch = null;
   }
 
   // Suggestions
@@ -288,7 +322,13 @@ class ApiService {
   }
 
   // Users
-  Future<List<User>> getUsers() async {
+  Future<List<User>> getUsers({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+    if (!forceRefresh && _usersCache != null && _usersLastFetch != null) {
+      if (now.difference(_usersLastFetch!) < _cacheTtl) {
+        return _usersCache!;
+      }
+    }
     final token = await getToken();
     final response = await http.get(
       Uri.parse('$baseUrl/users'),
@@ -296,19 +336,16 @@ class ApiService {
     );
     if (response.statusCode == 200) {
       final List<dynamic> data = jsonDecode(response.body);
-      return data.map((json) => User.fromJson(json)).toList();
-    } else {
-      final prefs = await SharedPreferences.getInstance();
-      final cachedUser = prefs.getString('user');
-      if (cachedUser != null) {
-        try {
-          final u = User.fromJson(jsonDecode(cachedUser));
-          return [u];
-        } catch (_) {
-          return [];
-        }
-      }
-      return [];
+      final result = data.map((json) => User.fromJson(json)).toList();
+      _usersCache = result;
+      _usersLastFetch = now;
+      return result;
+    }
+    try {
+      final error = jsonDecode(response.body);
+      throw Exception(error['message'] ?? 'Failed to load users (${response.statusCode})');
+    } catch (_) {
+      throw Exception('Failed to load users (${response.statusCode})');
     }
   }
 }
