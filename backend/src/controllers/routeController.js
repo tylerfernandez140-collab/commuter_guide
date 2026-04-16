@@ -35,7 +35,20 @@ exports.getRouteById = async (req, res) => {
 // Update Route (Admin)
 exports.updateRoute = async (req, res) => {
   try {
-    const updatedRoute = await Route.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updateData = {
+      route_name: req.body.route_name,
+      vehicle_type: req.body.vehicle_type,
+      start_point: req.body.start_point,
+      end_point: req.body.end_point,
+      fare: req.body.fare,
+      regular_fare: req.body.regular_fare,
+      discounted_fare: req.body.discounted_fare,
+      estimated_time: req.body.estimated_time,
+      route_status: req.body.route_status,
+      landmarks: req.body.landmarks,
+      coordinates: req.body.coordinates
+    };
+    const updatedRoute = await Route.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updatedRoute) return res.status(404).json({ message: 'Route not found' });
     res.json(updatedRoute);
   } catch (err) {
