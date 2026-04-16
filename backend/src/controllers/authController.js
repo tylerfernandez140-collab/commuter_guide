@@ -49,25 +49,18 @@ exports.register = async (req, res) => {
         html: `<p>Please verify your email by clicking the following link: <a href="${verificationUrl}">${verificationUrl}</a></p>`
       });
       
-      console.log('Email sent successfully to:', email);
       res.status(201).json({ message: 'Check your email to verify your account' });
     } catch (emailError) {
-      console.error('Email sending failed:', emailError.message);
-      console.error('Full error:', emailError);
-      
       // For production, we might want to handle this differently
       // For now, let's mark the user as verified so they can login
       try {
         user.isVerified = true;
         user.verificationToken = undefined;
         await user.save();
-        console.log('User marked as verified due to email failure');
-        
         res.status(201).json({ 
           message: 'Registration successful! You can now login. (Email verification was skipped due to technical issues)' 
         });
       } catch (saveError) {
-        console.error('Failed to update user verification status:', saveError);
         res.status(500).json({ 
           message: 'Registration completed but verification status update failed. Please contact support.',
           error: saveError.message 
@@ -180,11 +173,9 @@ exports.resendVerification = async (req, res) => {
       
       res.status(200).json({ message: 'Verification email resent successfully' });
     } catch (err) {
-      console.error('Resend Error:', err);
       res.status(500).json({ message: 'Failed to send email', error: err.message });
     }
   } catch (err) {
-    console.error('Resend Error:', err);
     res.status(500).json({ message: 'Failed to send email', error: err.message });
   }
 };

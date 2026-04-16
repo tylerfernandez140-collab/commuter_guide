@@ -14,9 +14,6 @@ const seedAdmin = async () => {
       if (!existingAdmin.isVerified) {
         existingAdmin.isVerified = true;
         await existingAdmin.save();
-        console.log('Existing Admin account marked as verified.');
-      } else {
-        console.log('Admin account already exists and is verified.');
       }
       return;
     }
@@ -35,12 +32,9 @@ const seedAdmin = async () => {
     });
 
     await newAdmin.save();
-    console.log('Admin account created successfully.');
-    console.log(`Email: ${adminEmail}`);
-    console.log(`Password: ${adminPassword}`);
 
   } catch (error) {
-    console.error('Error seeding admin:', error);
+    // Silently handle errors
   }
 };
 

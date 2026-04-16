@@ -21,9 +21,7 @@ async function sendEmail({ to, subject, text, html }) {
     };
     try {
       await sgMail.send(msg);
-      console.log(`Email sent to ${to} via SendGrid`);
     } catch (error) {
-      console.error('SendGrid error:', error.response?.body || error.message);
       throw error;
     }
   } else {
@@ -53,9 +51,7 @@ async function sendEmail({ to, subject, text, html }) {
 
     try {
       await transporter.sendMail(mailOptions);
-      console.log(`Email sent to ${to} via Gmail (development)`);
     } catch (error) {
-      console.error('Gmail error:', error.message);
       throw error;
     }
   }

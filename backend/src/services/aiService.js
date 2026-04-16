@@ -1,13 +1,12 @@
 const OpenAI = require("openai");
 
-const token = process.env.GITHUB_TOKEN;
-const endpoint = "https://models.github.ai/inference";
-const modelName = "openai/gpt-4o-mini";
+const token = process.env.OPENAI_API_KEY;
+const endpoint = "https://api.openai.com/v1";
+const modelName = "gpt-4o-mini";
 
 exports.askAI = async (userQuestion, lat, lng, landmarks) => {
   if (!token) {
-    console.warn("GITHUB_TOKEN is not set. Using fallback response.");
-    return "I'm sorry, I can't process that right now. Please configure the AI token.";
+    return "I'm sorry, I can't process that right now. Please configure the OpenAI API key.";
   }
 
   try {
@@ -49,7 +48,6 @@ ${userQuestion}
 
     return response.choices[0].message.content;
   } catch (error) {
-    console.error("AI Service Error:", error);
     return "I'm having trouble connecting to the AI service. Please try again later.";
   }
 };
