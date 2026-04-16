@@ -69,17 +69,30 @@ exports.chat = async (req, res) => {
       });
     }
 
-    // No matches found
+    // No matches found - build helpful fallback response with suggestions
+    const suggestionCount = 4;
+    const routeSuggestions = routes
+      .slice(0, Math.min(suggestionCount, routes.length))
+      .map(r => `• ${r.end_point}`)
+      .join('\n');
+
+    const landmarkSuggestions = landmarksData
+      .slice(0, Math.min(suggestionCount, landmarksData.length))
+      .map(l => `• ${l.name}`)
+      .join('\n');
+
+    const fallbackReply = `Right now, no matching route or landmark was found in the live commuter database.\n\nYou can try asking about:\n\n📍 Popular Destinations:\n${routeSuggestions || '• No routes available yet'}\n\n🏛️ Popular Landmarks:\n${landmarkSuggestions || '• No landmarks available yet'}\n\nI'm sorry if right now I'm not able to answer your specific query. Thank you for using Byahero Commuter Guide!`;
+
     if (req.user) {
       await ChatLog.create({
         user_id: req.user.id,
         question: message,
-        ai_response: "Sorry, no matching route or landmark was found in the live commuter database."
+        ai_response: fallbackReply
       });
     }
 
     return res.json({
-      reply: "Sorry, no matching route or landmark was found in the live commuter database."
+      reply: fallbackReply
     });
   } catch (error) {
     console.error("Chat database error:", error);
