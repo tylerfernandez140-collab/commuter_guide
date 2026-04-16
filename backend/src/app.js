@@ -11,6 +11,8 @@ connectDB();
 
 const app = express();
 
+console.log('[APP] Server starting with landmark delete/update support v2');
+
 // Middleware
 app.use(express.json());
 app.use(
