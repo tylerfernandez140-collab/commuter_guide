@@ -5,7 +5,9 @@ const routeSchema = new mongoose.Schema({
   vehicle_type: { type: String, enum: ['jeepney', 'minibus', 'ejeepney'], required: true },
   start_point: { type: String, required: true },
   end_point: { type: String, required: true },
-  fare: { type: Number, required: true },
+  fare: { type: Number, required: true }, // legacy field
+  regular_fare: { type: Number, default: null },
+  discounted_fare: { type: Number, default: null },
   estimated_time: { type: Number, required: true }, // in minutes
   route_status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   landmarks: [{ type: String }],
