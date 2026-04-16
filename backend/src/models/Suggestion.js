@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const suggestionSchema = new mongoose.Schema({
   landmark_name: { type: String, required: true },
+  type: { type: String, required: true },
   latitude: { type: Number, required: true },
   longitude: { type: Number, required: true },
   submitted_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

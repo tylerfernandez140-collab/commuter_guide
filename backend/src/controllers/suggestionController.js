@@ -3,10 +3,11 @@ const Suggestion = require('../models/Suggestion');
 // Submit Suggestion (Commuter)
 exports.submitSuggestion = async (req, res) => {
   try {
-    const { landmark_name, latitude, longitude } = req.body;
+    const { landmark_name, type, latitude, longitude } = req.body;
     
     const suggestion = new Suggestion({
       landmark_name,
+      type,
       latitude,
       longitude,
       submitted_by: req.user.id
