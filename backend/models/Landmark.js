@@ -4,7 +4,6 @@ const landmarkSchema = new mongoose.Schema({
   name: { type: String, required: true },
   type: {
     type: String,
-    enum: ['Hospital', 'Government Office', 'Market', 'School', 'Airport', 'Mall', 'Cemetery', 'Restaurant', 'Establishment'],
     required: true
   },
   near_route: { type: String, required: true },

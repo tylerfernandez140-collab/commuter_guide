@@ -6,5 +6,7 @@ const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 router.post('/', verifyToken, isAdmin, landmarkController.createLandmark);
 router.get('/', landmarkController.getAllLandmarks);
 router.get('/route/:routeName', landmarkController.getLandmarksByRoute);
+router.put('/:id', verifyToken, isAdmin, landmarkController.updateLandmark);
+router.delete('/:id', verifyToken, isAdmin, landmarkController.deleteLandmark);
 
 module.exports = router;

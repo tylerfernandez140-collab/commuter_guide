@@ -37,6 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/landmarks', landmarkRoutes);
+console.log('[APP] Landmark routes mounted at /api/landmarks');
 app.use('/api/search', searchRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/chat', chatRoutes);
