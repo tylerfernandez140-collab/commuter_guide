@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart';
 import 'services/api_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
@@ -9,7 +10,12 @@ import 'screens/commuter/commuter_main_screen.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
-  await dotenv.load(fileName: ".env");
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('.env file not found, skipping...');
+  }
   runApp(const MainApp());
 }
 
@@ -22,6 +28,7 @@ class MainApp extends StatelessWidget {
       providers: [
         Provider(create: (_) => ApiService()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

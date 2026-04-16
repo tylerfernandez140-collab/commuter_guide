@@ -5,10 +5,10 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({Key? key}) : super(key: key);
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  _RegisterScreenState createState() => _RegisterScreenState();
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
@@ -108,7 +108,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(28),
                     ),
-                    color: Colors.white.withValues(alpha: 0.95),
+                    color: Colors.white.withOpacity(0.95),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
                       child: Form(
@@ -287,7 +287,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Text(
                       "Already have an account?",
                       style: GoogleFonts.poppins(
-                        color: Colors.white.withValues(alpha: 0.75),
+                        color: Colors.white.withOpacity(0.75),
                         fontSize: 15,
                       ),
                     ),
@@ -316,6 +316,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
       ),
+      
     );
   }
 }

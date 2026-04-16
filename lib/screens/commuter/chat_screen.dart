@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../services/api_service.dart';
+import '../../providers/chat_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -11,7 +12,6 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final List<Map<String, String>> _messages = [];
   final _controller = TextEditingController();
   bool _isLoading = false;
   Position? _currentPosition;
@@ -45,11 +45,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       Position position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _currentPosition = position;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+      }
     } catch (e) {
-      debugPrint("Error getting location: $e");
+      // Silently handle error
     }
   }
 
@@ -57,10 +59,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_controller.text.isEmpty) return;
 
     final message = _controller.text;
-    setState(() {
-      _messages.add({'sender': 'user', 'text': message});
-      _isLoading = true;
-    });
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
+    chatProvider.addUserMessage(message);
+    setState(() => _isLoading = true);
     _controller.clear();
 
     try {
@@ -77,40 +79,41 @@ class _ChatScreenState extends State<ChatScreen> {
         landmarks: [],
       );
 
-      setState(() {
-        _messages.add({'sender': 'bot', 'text': reply});
-      });
+      if (mounted) {
+        chatProvider.addBotMessage(reply);
+      }
     } catch (e) {
-      setState(() {
-        _messages.add({
-          'sender': 'bot',
-          'text': 'Error: Could not get response.',
-        });
-      });
+      if (mounted) {
+        chatProvider.addBotMessage('Error: Could not get response.');
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final messages = context.watch<ChatProvider>().messages;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       body: Column(
         children: [
           _buildHeader(),
           Expanded(
-            child: _messages.isEmpty
+            child: messages.isEmpty
                 ? _buildEmptyState()
                 : ListView.builder(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16.0,
                       vertical: 8.0,
                     ),
-                    itemCount: _messages.length,
+                    itemCount: messages.length,
                     itemBuilder: (context, index) {
-                      final msg = _messages[index];
-                      final isUser = msg['sender'] == 'user';
+                      final msg = messages[index];
+                      final isUser = msg.sender == 'user';
                       return Align(
                         alignment: isUser
                             ? Alignment.centerRight
@@ -141,7 +144,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ],
                           ),
                           child: Text(
-                            msg['text']!,
+                            msg.text,
                             style: TextStyle(
                               color: isUser ? Colors.white : Colors.black87,
                               fontSize: 15,
@@ -200,35 +203,9 @@ class _ChatScreenState extends State<ChatScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 32),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                _buildSuggestionChip('Fare to SM Sucat?'),
-                _buildSuggestionChip('Where is the terminal?'),
-                _buildSuggestionChip('Route to Baclaran'),
-              ],
-            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSuggestionChip(String label) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {
-        _controller.text = label;
-        _sendMessage();
-      },
-      backgroundColor: Colors.white,
-      side: BorderSide(color: Colors.teal.shade100),
-      labelStyle: TextStyle(color: Colors.teal.shade700),
-      elevation: 1,
-      pressElevation: 4,
     );
   }
 

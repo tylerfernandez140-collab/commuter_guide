@@ -147,10 +147,7 @@ class _SuggestionsReviewScreenState extends State<SuggestionsReviewScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
         ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
+        borderRadius: BorderRadius.zero,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

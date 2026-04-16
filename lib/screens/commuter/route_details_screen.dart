@@ -27,13 +27,46 @@ class RouteDetailsScreen extends StatelessWidget {
               value: route.vehicleType.toUpperCase(),
             ),
             SizedBox(height: 12),
-            _buildInfoCard(
-              context,
-              icon: Icons.payments,
-              title: 'Fare',
-              value: '₱${route.fare.toStringAsFixed(2)}',
-            ),
-            SizedBox(height: 12),
+            // Show discounted fare if available
+            if (route.discountedFare != null) ...[
+              _buildInfoCard(
+                context,
+                icon: Icons.school,
+                title: 'Discounted Fare',
+                value: '₱${route.discountedFare!.toStringAsFixed(2)}',
+              ),
+              SizedBox(height: 12),
+            ],
+            // Show regular fare if available
+            if (route.regularFare != null) ...[
+              _buildInfoCard(
+                context,
+                icon: Icons.person,
+                title: 'Regular Fare',
+                value: '₱${route.regularFare!.toStringAsFixed(2)}',
+              ),
+              SizedBox(height: 12),
+            ],
+            // Show legacy fare if available and no new fares
+            if (route.discountedFare == null && route.regularFare == null && route.fare != null) ...[
+              _buildInfoCard(
+                context,
+                icon: Icons.payments,
+                title: 'Fare',
+                value: '₱${route.fare!.toStringAsFixed(2)}',
+              ),
+              SizedBox(height: 12),
+            ],
+            // Show no fare if none available
+            if (route.discountedFare == null && route.regularFare == null && route.fare == null) ...[
+              _buildInfoCard(
+                context,
+                icon: Icons.payments,
+                title: 'Fare',
+                value: 'N/A',
+              ),
+              SizedBox(height: 12),
+            ],
             _buildInfoCard(
               context,
               icon: Icons.access_time,

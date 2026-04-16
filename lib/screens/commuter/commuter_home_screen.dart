@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:latlong2/latlong.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../models/route_model.dart';
+import '../../screens/login_screen.dart';
 import 'route_details_screen.dart';
+import 'commuter_map_screen.dart';
 
 class CommuterHomeScreen extends StatefulWidget {
   const CommuterHomeScreen({super.key});
@@ -39,13 +42,17 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
         context,
         listen: false,
       ).getRoutes();
-      setState(() {
-        _allRoutes = routes;
-        _isLoadingRoutes = false;
-      });
+      if (mounted) {
+        setState(() {
+          _allRoutes = routes;
+          _isLoadingRoutes = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error loading routes: $e');
-      setState(() => _isLoadingRoutes = false);
+      if (mounted) {
+        setState(() => _isLoadingRoutes = false);
+      }
     }
   }
 
@@ -53,13 +60,13 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0F766E), // Deep Teal
-              Color(0xFF2DD4BF), // Soft Teal
+              Color(0xFF0F766E),
+              Color(0xFF2DD4BF),
             ],
           ),
         ),
@@ -67,16 +74,9 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Section
+              // Header
               Container(
                 padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
-                decoration: BoxDecoration(
-                  color: Colors.transparent, // Remove background to show gradient
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
-                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -89,268 +89,194 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
                             fontSize: 28,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
-                            letterSpacing: 0.3,
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.logout, color: Colors.white),
-                          onPressed: () {
-                            Provider.of<AuthProvider>(
-                              context,
-                              listen: false,
-                            ).logout();
-                            Navigator.of(context).pushReplacementNamed('/login');
+                        PopupMenuButton<String>(
+                          icon: const Icon(
+                            Icons.account_circle,
+                            color: Colors.white,
+                            size: 32,
+                          ),
+                          onSelected: (value) {
+                            if (value == 'logout') {
+                              _showLogoutDialog(context);
+                            }
                           },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Where do you want to go today?',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: Colors.white.withValues(alpha: 0.8),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Search Bar inside Header
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      return RawAutocomplete<Object>(
-                        textEditingController: _searchController,
-                        focusNode: _focusNode,
-                        optionsBuilder: (TextEditingValue textEditingValue) {
-                          if (textEditingValue.text.isEmpty) {
-                            return const Iterable<Object>.empty();
-                          }
-                          final query = textEditingValue.text.toLowerCase();
-                          final matches = _allRoutes.where((route) {
-                            return route.routeName.toLowerCase().contains(query) ||
-                                route.startPoint.toLowerCase().contains(query) ||
-                                route.endPoint.toLowerCase().contains(query) ||
-                                route.landmarks.any((l) => l.toLowerCase().contains(query));
-                          }).toList();
-                          if (matches.isEmpty) {
-                            return ['No route found'];
-                          }
-                          return matches;
-                        },
-                        displayStringForOption: (Object option) {
-                          if (option is RouteModel) {
-                            return option.routeName;
-                          }
-                          return option.toString();
-                        },
-                        fieldViewBuilder:
-                            (context, controller, focusNode, onFieldSubmitted) {
-                              return CompositedTransformTarget(
-                                link: _layerLink,
-                                child: TextField(
-                                  controller: controller,
-                                  focusNode: focusNode,
-                                  style: const TextStyle(color: Colors.black87),
-                                  decoration: InputDecoration(
-                                    hintText:
-                                        'Search routes, stops, or landmarks...',
-                                    hintStyle: TextStyle(
-                                      color: Colors.grey[400],
-                                    ),
-                                    prefixIcon: const Icon(
-                                      Icons.search,
-                                      color: Colors.teal,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(15),
-                                      borderSide: BorderSide.none,
-                                    ),
-                                    filled: true,
-                                    fillColor: Colors.white,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 16,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                        optionsViewBuilder: (context, onSelected, options) {
-                          return Align(
-                            alignment: Alignment.topLeft,
-                            child: CompositedTransformFollower(
-                              link: _layerLink,
-                              showWhenUnlinked: false,
-                              targetAnchor: Alignment.bottomLeft,
-                              offset: const Offset(0, 5),
-                              child: Material(
-                                elevation: 8.0,
-                                borderRadius: BorderRadius.circular(15),
-                                clipBehavior: Clip.antiAlias,
-                                child: Container(
-                                  width: constraints.maxWidth,
-                                  color: Colors.white,
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 300,
-                                  ),
-                                  child: ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    shrinkWrap: true,
-                                    itemCount: options.length,
-                                    itemBuilder: (BuildContext context, int index) {
-                                      final option = options.elementAt(index);
-
-                                      if (option is String) {
-                                        return ListTile(
-                                          title: Text(
-                                            option,
-                                            style: const TextStyle(
-                                              fontStyle: FontStyle.italic,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        );
-                                      }
-
-                                      final route = option as RouteModel;
-                                      return ListTile(
-                                        leading: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.teal.withValues(alpha: 0.1),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.directions_bus,
-                                            size: 24,
-                                            color: Color(0xFF0F766E), // Deep Teal
-                                          ),
-                                        ),
-                                        title: Text(
-                                          route.routeName,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        subtitle: Text(
-                                          '${route.startPoint} - ${route.endPoint}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        onTap: () {
-                                          onSelected(route);
-                                        },
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                        onSelected: (Object selection) {
-                          if (selection is RouteModel) {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    RouteDetailsScreen(route: selection),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
-            // Body Content
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _isLoadingRoutes
-                      ? const Center(child: CircularProgressIndicator())
-                      : Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Popular Destinations',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () {},
-                                  child: const Text('View All'),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            GridView.count(
-                              crossAxisCount: 2,
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 0.85,
-                              children: [
-                                _buildSuggestionCard(
-                                  'SM Sucat',
-                                  'https://images.unsplash.com/photo-1569388330292-7a6a84165c6c?q=80&w=400&auto=format&fit=crop',
-                                ),
-                                _buildSuggestionCard(
-                                  'NAIA Terminal 1',
-                                  'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=400&auto=format&fit=crop',
-                                ),
-                                _buildSuggestionCard(
-                                  'City Hall',
-                                  'https://images.unsplash.com/photo-1577493340887-b7bfff550145?q=80&w=400&auto=format&fit=crop',
-                                ),
-                                _buildSuggestionCard(
-                                  'Baclaran',
-                                  'https://images.unsplash.com/photo-1548625361-987702f30b92?q=80&w=400&auto=format&fit=crop',
-                                ),
-                              ],
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(
+                              value: 'logout',
+                              child: Text('Logout'),
                             ),
                           ],
                         ),
-                ],
+                      ],
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    Text(
+                      'Where do you want to go today?',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return RawAutocomplete<Object>(
+                          textEditingController: _searchController,
+                          focusNode: _focusNode,
+                          optionsBuilder: (textEditingValue) {
+                            if (textEditingValue.text.isEmpty) {
+                              return const Iterable<Object>.empty();
+                            }
+
+                            final query = textEditingValue.text.toLowerCase();
+
+                            final matches = _allRoutes.where((route) {
+                              return route.routeName.toLowerCase().contains(query) ||
+                                  route.startPoint.toLowerCase().contains(query) ||
+                                  route.endPoint.toLowerCase().contains(query) ||
+                                  route.landmarks.any(
+                                    (l) => l.toLowerCase().contains(query),
+                                  );
+                            }).toList();
+
+                            if (matches.isEmpty) {
+                              return ['No route found'];
+                            }
+
+                            return matches;
+                          },
+                          displayStringForOption: (option) {
+                            if (option is RouteModel) {
+                              return option.routeName;
+                            }
+                            return option.toString();
+                          },
+                          fieldViewBuilder: (
+                            context,
+                            controller,
+                            focusNode,
+                            onFieldSubmitted,
+                          ) {
+                            return TextField(
+                              controller: controller,
+                              focusNode: focusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Search routes, stops, or landmarks...',
+                                filled: true,
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(Icons.search),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  borderSide: BorderSide.none,
+                                ),
+                              ),
+                            );
+                          },
+                          optionsViewBuilder: (context, onSelected, options) {
+                            return Material(
+                              elevation: 8,
+                              borderRadius: BorderRadius.circular(15),
+                              child: Container(
+                                width: constraints.maxWidth,
+                                constraints: const BoxConstraints(maxHeight: 300),
+                                color: Colors.white,
+                                child: ListView.builder(
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: options.length,
+                                  itemBuilder: (context, index) {
+                                    final option = options.elementAt(index);
+
+                                    if (option is String) {
+                                      return ListTile(title: Text(option));
+                                    }
+
+                                    final route = option as RouteModel;
+
+                                    return ListTile(
+                                      title: Text(route.routeName),
+                                      subtitle: Text('${route.startPoint} - ${route.endPoint}'),
+                                      onTap: () => onSelected(route),
+                                    );
+                                  },
+                                ),
+                              ),
+                            );
+                          },
+                          onSelected: (selection) {
+                            if (selection is RouteModel) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => RouteDetailsScreen(route: selection),
+                                ),
+                              );
+                            }
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              // Body
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: _isLoadingRoutes
+                    ? const Center(child: CircularProgressIndicator(color: Colors.black))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Popular Destinations',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 0.85,
+                            children: [
+                              _buildSuggestionCard('Baclaran Church', 'baclaran_church.jpg', const LatLng(14.5314, 120.9950)),
+                              _buildSuggestionCard('Dream Play', 'dream_play.jpg', const LatLng(14.5246791, 120.9913930)),
+                              _buildSuggestionCard('Okada Manila', 'okada_manila.jpg', const LatLng(14.5153, 120.9811)),
+                              _buildSuggestionCard('Wetland Park', 'wetland_park.jpg', const LatLng(22.4701, 114.0066)),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
-    ));
+    );
   }
 
-  Widget _buildSuggestionCard(String title, String imageUrl) {
+  Widget _buildSuggestionCard(String title, String imageUrl, LatLng destination) {
     return GestureDetector(
       onTap: () {
-        // Try to find a matching route
-        try {
-          final match = _allRoutes.firstWhere(
-            (r) =>
-                r.routeName.toLowerCase().contains(title.toLowerCase()) ||
-                r.endPoint.toLowerCase().contains(title.toLowerCase()) ||
-                r.landmarks.any(
-                  (l) => l.toLowerCase().contains(title.toLowerCase()),
-                ),
-          );
-
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => RouteDetailsScreen(route: match)),
-          );
-        } catch (e) {
-          // If no direct match found, fill search
-          _searchController.text = title;
-        }
+        // Navigate to map with directions to this destination
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => CommuterMapScreen(
+              destination: destination,
+              destinationName: title,
+            ),
+          ),
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -369,7 +295,7 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              Image.network(
+              Image.asset(
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
@@ -411,18 +337,20 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
                       ),
                       const SizedBox(height: 4),
                       Row(
-                        children: const [
-                          Icon(
-                            Icons.location_on,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.touch_app,
                             color: Colors.tealAccent,
                             size: 12,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                           Text(
-                            'Tap to view',
+                            'Tap for directions',
                             style: TextStyle(
                               color: Colors.tealAccent,
-                              fontSize: 10,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
@@ -434,6 +362,33 @@ class _CommuterHomeScreenState extends State<CommuterHomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Logout', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+        content: Text('Are you sure you want to logout?', style: GoogleFonts.poppins()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.poppins(color: Colors.black87)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              Provider.of<AuthProvider>(context, listen: false).logout();
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
+            },
+            child: Text('Logout', style: GoogleFonts.poppins(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }

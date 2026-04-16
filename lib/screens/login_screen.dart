@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/auth_provider.dart';
@@ -37,6 +38,186 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(authProvider.errorMessage ?? 'Login failed')),
       );
     }
+  }
+
+  void _showPolicySheet(String title, List<Widget> children) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.85,
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: children,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F766E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Close',
+                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sectionTitle(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 6),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
+  Widget _paragraph(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          color: Colors.black87,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _bullet(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 4, right: 8),
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF0F766E),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openPrivacy() {
+    _showPolicySheet('Privacy Policy', [
+      _paragraph('Byahero values your privacy. This Privacy Policy explains how we collect, use, and protect your information when you use the application.'),
+      _sectionTitle('1. Information We Collect'),
+      _paragraph('When you create an account, the app may collect basic information such as your name, email address, and account credentials. This information is used solely for authentication and account management within the system.'),
+      _sectionTitle('2. How We Use Your Information'),
+      _paragraph('The information collected is used to:'),
+      _bullet('Provide access to the application\'s features'),
+      _bullet('Improve system functionality'),
+      _bullet('Manage user suggestions and feedback'),
+      _sectionTitle('3. Data Protection'),
+      _paragraph('We take reasonable steps to protect your personal information from unauthorized access, misuse, or disclosure.'),
+      _sectionTitle('4. Third-Party Services'),
+      _paragraph('This application does not sell, trade, or share your personal information with third parties.'),
+      _sectionTitle('5. User Suggestions'),
+      _paragraph('If you submit route or landmark suggestions, the information you provide may be reviewed by administrators to improve the commuter guide system.'),
+      _sectionTitle('6. Changes to This Policy'),
+      _paragraph('This privacy policy may be updated when system features change. Continued use of the app indicates acceptance of the updated policy.'),
+      _sectionTitle('7. Contact'),
+      _paragraph('For questions regarding this policy, please contact the application administrator.'),
+    ]);
+  }
+
+  void _openTerms() {
+    _showPolicySheet('Terms and Conditions', [
+      _paragraph('By accessing and using the Byahero application, you agree to the following terms.'),
+      _sectionTitle('1. Use of the Application'),
+      _paragraph('This application is designed to help users explore transportation routes, landmarks, and commuter information.'),
+      _sectionTitle('2. User Responsibility'),
+      _paragraph('Users agree to provide accurate information when creating an account and to use the application responsibly.'),
+      _sectionTitle('3. User Suggestions'),
+      _paragraph('Users may submit suggestions for routes or landmarks. These submissions are subject to review by administrators and may be approved or rejected.'),
+      _sectionTitle('4. System Availability'),
+      _paragraph('While we aim to keep the system accessible at all times, temporary interruptions may occur due to maintenance or technical issues.'),
+      _sectionTitle('5. Limitation of Liability'),
+      _paragraph('The application provides route information for guidance purposes only. The developers are not responsible for delays, route changes, or inaccuracies in transportation schedules.'),
+      _sectionTitle('6. Prohibited Use'),
+      _paragraph('Users must not misuse the application, attempt unauthorized access, or interfere with system operations.'),
+      _sectionTitle('7. Acceptance of Terms'),
+      _paragraph('By continuing to use the application, you acknowledge that you have read and agree to these Terms and Conditions.'),
+    ]);
   }
 
   @override
@@ -267,6 +448,41 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                           ),
+                          const SizedBox(height: 12),
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: GoogleFonts.poppins(color: Colors.black87),
+                              children: [
+                                TextSpan(
+                                  text: 'By continuing you agree to our\n',
+                                  style: GoogleFonts.poppins(color: Colors.black54, fontSize: 13),
+                                ),
+                                TextSpan(
+                                  text: 'Terms & Conditions',
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                  recognizer: TapGestureRecognizer()..onTap = _openTerms,
+                                ),
+                                TextSpan(
+                                  text: ' and ',
+                                  style: GoogleFonts.poppins(color: Colors.black54, fontSize: 13),
+                                ),
+                                TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: GoogleFonts.poppins(
+                                    color: const Color(0xFFF59E0B),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                  recognizer: TapGestureRecognizer()..onTap = _openPrivacy,
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -281,11 +497,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      "Don't have an account?",
-                      style: GoogleFonts.poppins(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 15,
+                    Flexible(
+                      child: Text(
+                        "Don't have an account?",
+                        style: GoogleFonts.poppins(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                     TextButton(
@@ -299,10 +517,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Register',
                         style: GoogleFonts.poppins(
-                          color: Color(0xFFF59E0B),
+                          color: Colors.white,
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          decoration: TextDecoration.none,
                         ),
                       ),
                     ),

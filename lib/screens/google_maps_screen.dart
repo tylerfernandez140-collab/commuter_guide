@@ -1,11 +1,15 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 import 'package:geolocator/geolocator.dart';
-import 'dart:math' as math;
+import '../services/api_service.dart';
+import '../models/landmark.dart';
 
 class GoogleMapsScreen extends StatefulWidget {
   final List<dynamic>? routeCoordinates;
-  final List<dynamic>? landmarks;
+  final List<Landmark>? landmarks;
   final String? routeName;
 
   const GoogleMapsScreen({
@@ -21,7 +25,7 @@ class GoogleMapsScreen extends StatefulWidget {
 
 class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
   gmap.GoogleMapController? _mapController;
-  gmap.LatLng userLocation = const gmap.LatLng(14.5995, 120.9842); // Manila default
+  gmap.LatLng? userLocation; // null until GPS is obtained
   gmap.LatLng? sourceLocation;
   gmap.LatLng? destination;
   Set<gmap.Polyline> _polylines = {};
@@ -29,6 +33,12 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
   double _routeDistance = 0.0;
   bool _is3DView = true;
   double _currentZoom = 18.0;
+  bool _hasUserLocation = false;
+  List<Landmark> _allLandmarks = [];
+  bool _isLoadingLandmarks = true;
+  gmap.BitmapDescriptor? _landmarkIcon;
+  bool _iconsLoaded = false;
+  final GlobalKey _iconKey = GlobalKey();
 
   @override
   void initState() {
@@ -36,7 +46,141 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
     _getUserLocation();
     _calculateRouteDistance();
     _addRoutePolylines();
-    _addLandmarkMarkers();
+    _fetchLandmarks();
+    _loadLandmarkIcon();
+  }
+
+  Future<void> _loadLandmarkIcon() async {
+    try {
+      final icon = await _createFlagMarkerBitmap();
+      if (mounted) {
+        setState(() {
+          _landmarkIcon = icon;
+          _iconsLoaded = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading landmark icon: $e');
+      // Fallback to default green marker
+      if (mounted) {
+        setState(() {
+          _landmarkIcon = gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueGreen);
+          _iconsLoaded = true;
+        });
+      }
+    }
+  }
+
+  Future<gmap.BitmapDescriptor> _createFlagMarkerBitmap() async {
+    // Draw flag matching Material Icons.flag - small size like default Google Maps pins
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    const size = 32.0; // Match standard Google Maps location pin size
+
+    // Flag dimensions - rectangle with triangle notch on right
+    final poleX = size * 0.2;
+    final poleY = size * 0.1;
+    final poleBottom = size * 0.9;
+    
+    final flagLeft = poleX;
+    final flagTop = poleY;
+    final flagWidth = size * 0.5;
+    final flagHeight = size * 0.35;
+    final flagRight = flagLeft + flagWidth;
+    final flagBottom = flagTop + flagHeight;
+    final centerY = (flagTop + flagBottom) / 2;
+
+    // Draw pole
+    final polePaint = Paint()
+      ..color = Colors.grey.shade600
+      ..strokeWidth = 1.5;
+    canvas.drawLine(
+      Offset(poleX, poleY),
+      Offset(poleX, poleBottom),
+      polePaint,
+    );
+
+    // Draw flag: rectangle with inward triangle notch
+    final flagPaint = Paint()
+      ..color = Colors.green
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(flagLeft, flagTop)
+      ..lineTo(flagRight, flagTop)
+      ..lineTo(flagRight, centerY - 1)
+      ..lineTo(flagRight - size * 0.18, centerY)
+      ..lineTo(flagRight, centerY + 1)
+      ..lineTo(flagRight, flagBottom)
+      ..lineTo(flagLeft, flagBottom)
+      ..close();
+
+    canvas.drawPath(path, flagPaint);
+
+    // Convert
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    
+    if (byteData == null) throw Exception('Failed to create marker');
+    return gmap.BitmapDescriptor.bytes(byteData.buffer.asUint8List());
+  }
+
+  Future<void> _fetchLandmarks({bool forceRefresh = false}) async {
+    try {
+      // Show loading if not initial load
+      if (_allLandmarks.isNotEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Refreshing landmarks...'),
+            duration: Duration(seconds: 1),
+            backgroundColor: Color(0xFF0F766E),
+          ),
+        );
+      }
+      
+      // If landmarks were passed in, use those
+      if (widget.landmarks != null) {
+        if (mounted) {
+          setState(() {
+            _allLandmarks = widget.landmarks!;
+            _isLoadingLandmarks = false;
+          });
+        }
+        return;
+      }
+      
+      // Fetch fresh landmarks from API
+      final apiService = ApiService();
+      final landmarks = await apiService.getLandmarks(forceRefresh: forceRefresh);
+      
+      if (mounted) {
+        setState(() {
+          _allLandmarks = landmarks;
+          _isLoadingLandmarks = false;
+        });
+        
+        // Show success message with count
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_allLandmarks.length} landmarks loaded'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error fetching landmarks: $e');
+      if (mounted) {
+        setState(() => _isLoadingLandmarks = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   void _getUserLocation() async {
@@ -57,11 +201,11 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
       );
       setState(() {
         userLocation = gmap.LatLng(position.latitude, position.longitude);
+        _hasUserLocation = true;
       });
-      _mapController?.moveCamera(
-        gmap.CameraUpdate.newCameraPosition(
-          gmap.CameraPosition(target: userLocation, zoom: _currentZoom),
-        ),
+      // Move camera to user location
+      _mapController?.animateCamera(
+        gmap.CameraUpdate.newLatLngZoom(userLocation!, _currentZoom),
       );
     } catch (e) {
       debugPrint("Error getting location: $e");
@@ -87,6 +231,15 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
             ),
           };
         }
+      });
+    } else {
+      // Clear route data when no route is provided
+      setState(() {
+        sourceLocation = null;
+        destination = null;
+        routePoints = [];
+        _polylines = {};
+        _routeDistance = 0.0;
       });
     }
   }
@@ -119,167 +272,93 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
     });
   }
 
-  void _moveForward() {
-    final newLat = userLocation.latitude + 0.001;
-    final newLng = userLocation.longitude;
-    final newPosition = gmap.LatLng(newLat, newLng);
-    
-    setState(() {
-      userLocation = newPosition;
-    });
-
-    _mapController?.moveCamera(
-      gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-    );
-  }
-
-  void _moveBackward() {
-    final newLat = userLocation.latitude - 0.001;
-    final newLng = userLocation.longitude;
-    final newPosition = gmap.LatLng(newLat, newLng);
-    
-    setState(() {
-      userLocation = newPosition;
-    });
-
-    _mapController?.moveCamera(
-      gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-    );
-  }
-
-  void _moveLeft() {
-    final newLat = userLocation.latitude;
-    final newLng = userLocation.longitude - 0.001;
-    final newPosition = gmap.LatLng(newLat, newLng);
-    
-    setState(() {
-      userLocation = newPosition;
-    });
-
-    _mapController?.moveCamera(
-      gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-    );
-  }
-
-  void _moveRight() {
-    final newLat = userLocation.latitude;
-    final newLng = userLocation.longitude + 0.001;
-    final newPosition = gmap.LatLng(newLat, newLng);
-    
-    setState(() {
-      userLocation = newPosition;
-    });
-
-    _mapController?.moveCamera(
-      gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-    );
-  }
-
-  void _zoomIn() {
-    setState(() {
-      _currentZoom = math.min(_currentZoom + 1, 18);
-      _mapController?.moveCamera(
-        gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-      );
-    });
-  }
-
-  void _zoomOut() {
-    setState(() {
-      _currentZoom = math.max(_currentZoom - 1, 2);
-      _mapController?.moveCamera(
-        gmap.CameraUpdate.newLatLngZoom(userLocation, _currentZoom),
-      );
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // Hidden widget to capture the icon
+    final iconWidget = Offstage(
+      offstage: true,
+      child: RepaintBoundary(
+        key: _iconKey,
+        child: const Icon(Icons.flag, color: Colors.green, size: 48),
+      ),
+    );
+    
+    return Stack(
+      children: [
+        iconWidget,
+        Scaffold(
       appBar: AppBar(
         title: Text(widget.routeName ?? 'Map'),
-        backgroundColor: Colors.blue,
+        backgroundColor: const Color(0xFF0F766E),
+        foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _fetchLandmarks(forceRefresh: true),
+            tooltip: 'Refresh landmarks',
+          ),
           IconButton(
             icon: Icon(_is3DView ? Icons.view_in_ar : Icons.map),
             onPressed: _toggle3DView,
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          gmap.GoogleMap(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            gmap.GoogleMap(
             initialCameraPosition: gmap.CameraPosition(
-              target: sourceLocation ?? userLocation,
+              target: sourceLocation ?? userLocation ?? const gmap.LatLng(14.4793, 121.0195),
               zoom: _currentZoom,
             ),
             myLocationEnabled: true,
-            onMapCreated: (controller) => _mapController = controller,
+            onMapCreated: (controller) {
+              _mapController = controller;
+              // If we already have user location, move camera there
+              if (_hasUserLocation && userLocation != null) {
+                _mapController?.animateCamera(
+                  gmap.CameraUpdate.newLatLngZoom(userLocation!, _currentZoom),
+                );
+              }
+            },
             markers: _buildMarkers(),
             polylines: _polylines,
-            compassEnabled: true,
+            compassEnabled: false,
             mapToolbarEnabled: false,
             zoomControlsEnabled: false,
+            rotateGesturesEnabled: false,
+            tiltGesturesEnabled: false,
           ),
-          
-          // Navigation Controls
+
+          // My Location Button
           Positioned(
             right: 16,
             bottom: 100,
-            child: Column(
-              children: [
-                // Zoom controls
-                FloatingActionButton(
-                  heroTag: "zoom_in",
-                  onPressed: _zoomIn,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.add, color: Colors.black),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton(
-                  heroTag: "zoom_out",
-                  onPressed: _zoomOut,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.remove, color: Colors.black),
-                ),
-                const SizedBox(height: 8),
-                // Direction controls
-                FloatingActionButton(
-                  heroTag: "up",
-                  onPressed: _moveForward,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.keyboard_arrow_up, color: Colors.black),
-                ),
-                const SizedBox(height: 8),
-                // Left and Right
-                Row(
-                  children: [
-                    FloatingActionButton(
-                      heroTag: "left",
-                      onPressed: _moveLeft,
-                      backgroundColor: Colors.white,
-                      child: const Icon(Icons.keyboard_arrow_left, color: Colors.black),
-                    ),
-                    const SizedBox(width: 8),
-                    FloatingActionButton(
-                      heroTag: "right",
-                      onPressed: _moveRight,
-                      backgroundColor: Colors.white,
-                      child: const Icon(Icons.keyboard_arrow_right, color: Colors.black),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton(
-                  heroTag: "down",
-                  onPressed: _moveBackward,
-                  backgroundColor: Colors.white,
-                  child: const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-                ),
-              ],
+            child: FloatingActionButton(
+              heroTag: "my_location",
+              onPressed: () {
+                if (_hasUserLocation && userLocation != null) {
+                  _mapController?.animateCamera(
+                    gmap.CameraUpdate.newLatLngZoom(userLocation!, 18),
+                  );
+                } else {
+                  // Try to get location again
+                  _getUserLocation();
+                }
+              },
+              backgroundColor: Colors.white,
+              child: const Icon(Icons.my_location, color: Colors.teal),
             ),
           ),
-
+          
           // Distance and Time Info Card
           if (_routeDistance > 0)
             Positioned(
@@ -322,48 +401,73 @@ class _GoogleMapsScreenState extends State<GoogleMapsScreen> {
                 ),
               ),
             ),
-        ],
+          ],
+        ),
       ),
+    ),
+      ],
     );
   }
 
   Set<gmap.Marker> _buildMarkers() {
     final markers = <gmap.Marker>{};
-    markers.add(
-      gmap.Marker(
-        markerId: const gmap.MarkerId('user'),
-        position: userLocation,
-        icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueAzure),
-      ),
-    );
-    if (sourceLocation != null) {
+    
+    // Debug: print what markers we're building
+    debugPrint('_buildMarkers: hasUserLocation=$_hasUserLocation, userLocation=$userLocation');
+    debugPrint('_buildMarkers: routeCoordinates=${widget.routeCoordinates}, landmarks=${widget.landmarks}');
+    
+    // User location marker (blue dot) - only show when GPS is obtained
+    if (_hasUserLocation && userLocation != null) {
       markers.add(
         gmap.Marker(
-          markerId: const gmap.MarkerId('source'),
-          position: sourceLocation!,
-          icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueGreen),
+          markerId: const gmap.MarkerId('user'),
+          position: userLocation!,
+          icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueBlue),
+          infoWindow: const gmap.InfoWindow(title: 'Your Location'),
         ),
       );
     }
-    if (destination != null) {
+    
+    // Only show route markers when viewing a specific route
+    if (widget.routeCoordinates != null) {
+      // Route start marker (green)
+      if (sourceLocation != null) {
+        markers.add(
+          gmap.Marker(
+            markerId: const gmap.MarkerId('source'),
+            position: sourceLocation!,
+            icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueGreen),
+          ),
+        );
+      }
+      // Route end marker (red)
+      if (destination != null) {
+        markers.add(
+          gmap.Marker(
+            markerId: const gmap.MarkerId('destination'),
+            position: destination!,
+            icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueRed),
+          ),
+        );
+      }
+    }
+    
+    // Landmark markers - show green flag icon for all landmarks
+    for (final landmark in _allLandmarks) {
       markers.add(
         gmap.Marker(
-          markerId: const gmap.MarkerId('destination'),
-          position: destination!,
-          icon: gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueRed),
+          markerId: gmap.MarkerId('lm_${landmark.latitude}_${landmark.longitude}'),
+          position: gmap.LatLng(landmark.latitude, landmark.longitude),
+          icon: _landmarkIcon ?? gmap.BitmapDescriptor.defaultMarkerWithHue(gmap.BitmapDescriptor.hueGreen),
+          anchor: const Offset(0.2, 0.9), // Anchor at bottom of pole
+          infoWindow: gmap.InfoWindow(
+            title: landmark.name,
+            snippet: landmark.type.isNotEmpty ? landmark.type : null,
+          ),
         ),
       );
     }
-    // Landmark markers
-    for (final landmark in (widget.landmarks ?? [])) {
-      markers.add(
-        gmap.Marker(
-          markerId: gmap.MarkerId('lm_${landmark['name'] ?? landmark['latitude']}'),
-          position: gmap.LatLng(landmark['latitude'], landmark['longitude']),
-          icon: gmap.BitmapDescriptor.defaultMarker,
-        ),
-      );
-    }
+
     return markers;
   }
 }

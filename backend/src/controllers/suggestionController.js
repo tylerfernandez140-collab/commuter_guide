@@ -1,4 +1,5 @@
 const Suggestion = require('../models/Suggestion');
+const Landmark = require('../models/Landmark');
 
 // Submit Suggestion (Commuter)
 exports.submitSuggestion = async (req, res) => {
@@ -40,9 +41,17 @@ exports.approveSuggestion = async (req, res) => {
     );
     if (!suggestion) return res.status(404).json({ message: 'Suggestion not found' });
     
-    // TODO: Optionally add to Landmarks collection automatically
+    // Create the actual Landmark in the collection
+    const landmark = new Landmark({
+      name: suggestion.landmark_name,
+      type: suggestion.type,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+      near_route: '' // Empty by default, admin can edit later if needed
+    });
+    await landmark.save();
     
-    res.json(suggestion);
+    res.json({ suggestion, landmark, message: 'Suggestion approved and landmark created' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

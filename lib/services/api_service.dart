@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -20,6 +19,12 @@ class ApiService {
   static int? get routesCachedCount => _routesCache?.length;
   static int? get landmarksCachedCount => _landmarksCache?.length;
   static int? get usersCachedCount => _usersCache?.length;
+
+  static void clearRoutesCache() {
+    _routesCache = null;
+    _routesLastFetch = null;
+  }
+
   static String get baseUrl {
     final envUrl = dotenv.env['API_BASE_URL'];
     if (envUrl != null && envUrl.isNotEmpty) {
@@ -31,15 +36,11 @@ class ApiService {
   // Auth
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
-      debugPrint('Attempting login to $baseUrl/auth/login');
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
       );
-
-      debugPrint('Login response status: ${response.statusCode}');
-      debugPrint('Login response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -52,10 +53,8 @@ class ApiService {
         throw Exception(error['message'] ?? 'Failed to login');
       }
     } on SocketException catch (e) {
-      debugPrint('Network error: $e');
       throw Exception('Cannot connect to server. Ensure backend is running.');
     } catch (e) {
-      debugPrint('Login error: $e');
       throw Exception('Login failed: $e');
     }
   }
@@ -232,7 +231,7 @@ class ApiService {
     }
   }
 
-  Future<void> submitSuggestion(String name, double lat, double lng) async {
+  Future<void> submitSuggestion(String name, String type, double lat, double lng) async {
     final token = await getToken();
     final response = await http.post(
       Uri.parse('$baseUrl/suggestions'),
@@ -242,6 +241,7 @@ class ApiService {
       },
       body: jsonEncode({
         'landmark_name': name,
+        'type': type,
         'latitude': lat,
         'longitude': lng,
       }),

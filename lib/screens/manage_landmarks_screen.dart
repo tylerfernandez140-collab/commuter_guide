@@ -4,10 +4,13 @@ import '../models/landmark.dart';
 import '../services/api_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'manage_routes_screen.dart';
+import 'add_edit_landmark_screen.dart';
 import 'manage_users_screen.dart';
+import '../widgets/shimmer.dart';
 
 class ManageLandmarksScreen extends StatefulWidget {
-  const ManageLandmarksScreen({super.key});
+  final bool openAdd;
+  const ManageLandmarksScreen({super.key, this.openAdd = false});
 
   @override
   State<ManageLandmarksScreen> createState() => _ManageLandmarksScreenState();
@@ -16,11 +19,29 @@ class ManageLandmarksScreen extends StatefulWidget {
 class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
   late Future<List<Landmark>> _landmarksFuture;
   bool _isLoading = false;
+  DateTime? _skeletonUntil;
+  static const Duration _minSkeleton = Duration(seconds: 1);
 
   @override
   void initState() {
     super.initState();
     _refreshLandmarks();
+    _skeletonUntil = DateTime.now().add(_minSkeleton);
+    Future.delayed(_minSkeleton, () {
+      if (mounted) setState(() {});
+    });
+    if (widget.openAdd) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        final created = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (_) => const AddEditLandmarkScreen()),
+        );
+        if (created == true && mounted) {
+          _refreshLandmarks();
+        }
+      });
+    }
   }
 
   void _refreshLandmarks() {
@@ -41,7 +62,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Cancel', style: TextStyle(color: Colors.black87)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -82,14 +103,6 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
     }
   }
 
-  void _showAddEditDialog([Landmark? landmark]) {
-    showDialog(
-      context: context,
-      builder: (ctx) =>
-          _LandmarkDialog(landmark: landmark, onSave: _refreshLandmarks),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,69 +116,103 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
             colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
           ),
         ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF0F766E)),
-                    )
-                  : FutureBuilder<List<Landmark>>(
-                      future: _landmarksFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(color: Color(0xFF0F766E)),
-                          );
-                        } else if (snapshot.hasError) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline,
-                                  size: 48,
-                                  color: Colors.red[300],
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Error: ${snapshot.error}',
-                                  style: GoogleFonts.poppins(color: Colors.white),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: _refreshLandmarks,
-                                  child: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          );
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return _buildEmptyState();
-                        }
-
-                        return ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: snapshot.data!.length,
-                          itemBuilder: (context, index) {
-                            final landmark = snapshot.data![index];
-                            return _buildLandmarkCard(landmark);
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return RefreshIndicator(
+              color: Colors.black,
+              onRefresh: () async {
+                _skeletonUntil = DateTime.now().add(_minSkeleton);
+                Future.delayed(_minSkeleton, () {
+                  if (mounted) setState(() {});
+                });
+                setState(() {
+                  _landmarksFuture = Provider.of<ApiService>(
+                    context,
+                    listen: false,
+                  ).getLandmarks(forceRefresh: true);
+                });
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Column(
+                    children: [
+                      _buildHeader(),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _isLoading
+                            ? const Center(
+                                child: CircularProgressIndicator(color: Color(0xFF0F766E)),
+                              )
+                            : FutureBuilder<List<Landmark>>(
+                                future: _landmarksFuture,
+                                builder: (context, snapshot) {
+                                  final showSkeleton = snapshot.connectionState == ConnectionState.waiting ||
+                                      (_skeletonUntil != null && DateTime.now().isBefore(_skeletonUntil!));
+                                  if (showSkeleton) {
+                                    final expected = ApiService.landmarksCachedCount ?? 6;
+                                    return _buildLandmarkSkeletonList(expected);
+                                  } else if (snapshot.hasError) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            Icons.error_outline,
+                                            size: 48,
+                                            color: Colors.red[300],
+                                          ),
+                                          const SizedBox(height: 16),
+                                          Text(
+                                            'Error: ${snapshot.error}',
+                                            style: GoogleFonts.poppins(color: Colors.white),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton(
+                                            onPressed: _refreshLandmarks,
+                                            child: const Text('Retry'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                                    return _buildEmptyState();
+                                  }
+                                  return ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: snapshot.data!.length,
+                                    itemBuilder: (context, index) {
+                                      final landmark = snapshot.data![index];
+                                      return _buildLandmarkCard(landmark);
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddEditDialog(),
-        label: Text('Add Landmark', style: GoogleFonts.poppins()),
-        icon: const Icon(Icons.add_location_alt),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final created = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(builder: (_) => const AddEditLandmarkScreen()),
+          );
+          if (created == true) {
+            _refreshLandmarks();
+          }
+        },
         backgroundColor: const Color(0xFF0F766E),
         foregroundColor: Colors.white,
+        child: const Icon(Icons.add),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -224,10 +271,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
           end: Alignment.bottomRight,
           colors: [Color(0xFF0F766E), Color(0xFF2DD4BF)],
         ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
+        borderRadius: BorderRadius.zero,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,7 +280,7 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.pushReplacementNamed(context, '/dashboard'),
               ),
               const SizedBox(width: 8),
               Text(
@@ -334,20 +378,118 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Color(0xFF0F766E)),
-              onPressed: () => _showAddEditDialog(landmark),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _deleteLandmark(landmark.id),
-            ),
-          ],
+        trailing: Padding(
+          padding: const EdgeInsets.only(right: 48),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Color(0xFF0F766E)),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddEditLandmarkScreen(landmark: landmark),
+                    ),
+                  );
+                  _refreshLandmarks();
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _deleteLandmark(landmark.id),
+              ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLandmarkSkeletonList([int count = 6]) {
+    return Column(
+      children: List.generate(count, (index) {
+        return Card(
+          elevation: 8,
+          margin: const EdgeInsets.only(bottom: 16),
+          color: Colors.white.withValues(alpha: 0.95),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: ListTile(
+            contentPadding: const EdgeInsets.all(16),
+            leading: Shimmer(
+              child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            ),
+            title: Container(
+              width: double.infinity,
+              height: 16,
+              decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(8)),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 8),
+                Shimmer(
+                  child: Container(
+                  width: 160,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                ),
+                const SizedBox(height: 6),
+                Shimmer(
+                  child: Container(
+                  width: 220,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                ),
+              ],
+            ),
+            trailing: Padding(
+              padding: const EdgeInsets.only(right: 48),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Shimmer(
+                    child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  ),
+                  const SizedBox(width: 8),
+                  Shimmer(
+                    child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -366,168 +508,5 @@ class _ManageLandmarksScreenState extends State<ManageLandmarksScreen> {
       default:
         return Icons.place;
     }
-  }
-}
-
-class _LandmarkDialog extends StatefulWidget {
-  final Landmark? landmark;
-  final VoidCallback onSave;
-
-  const _LandmarkDialog({this.landmark, required this.onSave});
-
-  @override
-  State<_LandmarkDialog> createState() => _LandmarkDialogState();
-}
-
-class _LandmarkDialogState extends State<_LandmarkDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameController;
-  late TextEditingController _typeController;
-  late TextEditingController _nearRouteController;
-  late TextEditingController _latController;
-  late TextEditingController _lngController;
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.landmark?.name ?? '');
-    _typeController = TextEditingController(text: widget.landmark?.type ?? '');
-    _nearRouteController = TextEditingController(
-      text: widget.landmark?.nearRoute ?? '',
-    );
-    _latController = TextEditingController(
-      text: widget.landmark?.latitude.toString() ?? '',
-    );
-    _lngController = TextEditingController(
-      text: widget.landmark?.longitude.toString() ?? '',
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _typeController.dispose();
-    _nearRouteController.dispose();
-    _latController.dispose();
-    _lngController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
-    try {
-      final newLandmark = Landmark(
-        id: widget.landmark?.id ?? '',
-        name: _nameController.text,
-        type: _typeController.text,
-        nearRoute: _nearRouteController.text,
-        latitude: double.parse(_latController.text),
-        longitude: double.parse(_lngController.text),
-      );
-
-      final api = Provider.of<ApiService>(context, listen: false);
-      if (widget.landmark == null) {
-        await api.createLandmark(newLandmark);
-      } else {
-        await api.updateLandmark(widget.landmark!.id, newLandmark);
-      }
-
-      if (mounted) {
-        Navigator.of(context).pop();
-        widget.onSave();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.landmark == null
-                  ? 'Landmark created successfully'
-                  : 'Landmark updated successfully',
-            ),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.landmark == null ? 'Add Landmark' : 'Edit Landmark'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (val) => val!.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _typeController,
-                decoration: const InputDecoration(
-                  labelText: 'Type (e.g., Mall)',
-                ),
-                validator: (val) => val!.isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _nearRouteController,
-                decoration: const InputDecoration(labelText: 'Near Route'),
-                validator: (val) => val!.isEmpty ? 'Required' : null,
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _latController,
-                      decoration: const InputDecoration(labelText: 'Latitude'),
-                      keyboardType: TextInputType.number,
-                      validator: (val) => val!.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _lngController,
-                      decoration: const InputDecoration(labelText: 'Longitude'),
-                      keyboardType: TextInputType.number,
-                      validator: (val) => val!.isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isSaving ? null : _save,
-          child: _isSaving
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
-    );
   }
 }

@@ -4,7 +4,9 @@ class RouteModel {
   final String vehicleType;
   final String startPoint;
   final String endPoint;
-  final double fare;
+  final double? fare; // Legacy fare field (optional for backward compatibility)
+  final double? discountedFare; // For student/elderly/disabled
+  final double? regularFare; // For regular passengers
   final int estimatedTime;
   final List<String> landmarks;
   final List<Map<String, double>> coordinates;
@@ -17,7 +19,9 @@ class RouteModel {
     required this.vehicleType,
     required this.startPoint,
     required this.endPoint,
-    required this.fare,
+    this.fare, // Optional for backward compatibility
+    this.discountedFare,
+    this.regularFare,
     required this.estimatedTime,
     required this.landmarks,
     required this.coordinates,
@@ -32,7 +36,9 @@ class RouteModel {
       vehicleType: json['vehicle_type'],
       startPoint: json['start_point'],
       endPoint: json['end_point'],
-      fare: (json['fare'] as num).toDouble(),
+      fare: json['fare'] != null ? (json['fare'] as num).toDouble() : null, // Legacy fare
+      discountedFare: json['discounted_fare'] != null ? (json['discounted_fare'] as num).toDouble() : null,
+      regularFare: json['regular_fare'] != null ? (json['regular_fare'] as num).toDouble() : null,
       estimatedTime: json['estimated_time'],
       landmarks: List<String>.from(json['landmarks']),
       coordinates: (json['coordinates'] as List)
@@ -58,7 +64,9 @@ class RouteModel {
       'vehicle_type': vehicleType,
       'start_point': startPoint,
       'end_point': endPoint,
-      'fare': fare,
+      'fare': fare, // Legacy fare for backward compatibility
+      'discounted_fare': discountedFare,
+      'regular_fare': regularFare,
       'estimated_time': estimatedTime,
       'landmarks': landmarks,
       'coordinates': coordinates,

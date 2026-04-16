@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../widgets/jeep_icon.dart';
+import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/auth_provider.dart';
+import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -10,16 +12,42 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 3),
+      vsync: this,
+    );
+    // Start the animation immediately for the fallback
+    _controller.repeat();
+    // Start checking auth after a delay to let animation play
+    Future.delayed(const Duration(milliseconds: 500), _checkAuth);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _checkAuth() async {
-    await Future.delayed(const Duration(seconds: 2)); // Show splash for 2 seconds
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final seenOnboarding = prefs.getBool('onboarding_done') ?? false;
+    if (!seenOnboarding) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+      );
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final isAuthenticated = await authProvider.tryAutoLogin();
@@ -39,30 +67,49 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.teal, // Jeepney color theme
+      backgroundColor: Colors.teal,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const JeepIconWhite(
-              size: 100,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Byahero',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Know what ride to take.',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white70,
-              ),
+            // Use the correct travel_icon_map animation for splash screen
+            Lottie.asset(
+              'travel_icon_map.json',
+              controller: _controller,
+              width: 180,
+              height: 180,
+              fit: BoxFit.contain,
+              onLoaded: (composition) {
+                print('Travel icon map animation loaded successfully');
+                _controller
+                  ..duration = composition.duration
+                  ..repeat();
+              },
+              errorBuilder: (context, error, stackTrace) {
+                print('Travel icon map Lottie error: $error');
+                // Fallback to a simple animated container
+                return AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Transform.rotate(
+                      angle: _controller.value * 2 * 3.14159,
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.map,
+                          size: 80,
+                          color: Colors.white,
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ],
         ),
